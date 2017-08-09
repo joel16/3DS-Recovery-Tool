@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include "fs.h"
 
 void openArchive(FS_ArchiveID id)
@@ -5,7 +8,7 @@ void openArchive(FS_ArchiveID id)
 	FSUSER_OpenArchive(&fsArchive, id, fsMakePath(PATH_EMPTY, ""));
 }
 
-void closeArchive(void)
+void closeArchive(FS_ArchiveID id)
 {
 	FSUSER_CloseArchive(fsArchive);
 }
@@ -56,4 +59,42 @@ bool dirExists(FS_Archive archive, const char * path)
 		return false;
 	
 	return true;
+}
+
+Result copy_file_archive(const char * src, const char * dst)
+{
+	u64 size = 0;
+	u32 bytesRead = 0;
+	
+	openArchive(ARCHIVE_NAND_CTR_FS);
+	
+	Handle handle;
+	Result res = FSUSER_OpenFile(&handle, fsArchive, fsMakePath(PATH_ASCII, src), FS_OPEN_READ, 0);
+	
+	if (R_FAILED(res)) 
+		return res;
+	
+	else if (R_SUCCEEDED(res))
+    {
+        FSFILE_GetSize(handle, &size);
+		
+		char * buf = malloc(size);
+		memset(buf, 0, size);
+		
+		FSFILE_Read(handle, &bytesRead, 0, buf, size);
+		FSFILE_Close(handle);
+		closeArchive(ARCHIVE_NAND_CTR_FS);
+		
+		FSUSER_CreateFile(fsArchive, fsMakePath(PATH_ASCII, dst), 0, size);
+		FSUSER_OpenFile(&handle, fsArchive, fsMakePath(PATH_ASCII, dst), FS_OPEN_WRITE, 0);
+		Result res = FSFILE_Write(handle, &bytesRead, 0, buf, size, FS_WRITE_FLUSH);
+		
+		if (R_FAILED(res))
+			return res;
+		
+		free(buf);
+		FSFILE_Close(handle);
+    }
+	
+	return res;
 }
