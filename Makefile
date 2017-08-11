@@ -51,6 +51,9 @@ APP_SYSTEM_MODE_EXT := Legacy
 APP_ROMFS_DIR		:= $(TOPDIR)/romfs
 RSF_FILE			:= resources/cia.rsf
 
+VERSION_MAJOR := 1
+VERSION_MINOR := 0
+
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
@@ -58,6 +61,7 @@ ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
 CFLAGS	:=	-g -Wall -O2 -mword-relocations \
 			-fomit-frame-pointer -ffunction-sections \
+			-DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) \
 			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
