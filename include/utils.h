@@ -6,9 +6,11 @@
 #include <stdio.h>
 #include <string.h>
 
+bool darkTheme;
+
 void getSizeString(char *string, uint64_t size);
 bool isN3DS(void);
 void utf2ascii(char* dst, u16* src);
-char * base64Encode(u8 const * bytesToEnc, size_t bufLen);
+void setConfig(const char * path, bool set);
 
 #endif

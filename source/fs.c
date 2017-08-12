@@ -98,3 +98,22 @@ Result copy_file_archive(const char * src, const char * dst)
 	
 	return res;
 }
+
+Result writeFile(const char * path, const char * buf)
+{
+	Handle handle;
+	u32 len = strlen(buf);
+	u64 size;
+	u32 written;
+	
+	if (fileExists(fsArchive, path))
+		FSUSER_DeleteFile(fsArchive, fsMakePath(PATH_ASCII, path));
+	
+	Result ret = FSUSER_OpenFileDirectly(&handle, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, path), (FS_OPEN_WRITE | FS_OPEN_CREATE), 0);
+	ret = FSFILE_GetSize(handle, &size);
+	ret = FSFILE_SetSize(handle, size + len);
+	ret = FSFILE_Write(handle, &written, size, buf, len, FS_WRITE_FLUSH);
+	ret = FSFILE_Close(handle);
+	
+	return ret == 0 ? 0 : -1;
+}

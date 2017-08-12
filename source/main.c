@@ -8,12 +8,16 @@
 #include "am.h"
 #include "cfg.h"
 #include "clock.h"
+#include "colours.h"
 #include "compile_date.h"
 #include "fs.h"
 #include "utils.h"
 #include "screen.h"
 
 #define selector_yDistance 30
+
+#define TEXTURE_TOGGLE_ON  0
+#define TEXTURE_TOGGLE_OFF 1
 
 jmp_buf exitJmp;
 
@@ -30,17 +34,46 @@ void initServices(void)
 	romfsInit();
 	screen_init();
 	
+	screen_load_texture_png(TEXTURE_TOGGLE_ON, "romfs:/toggleOn.png", true);
+	screen_load_texture_png(TEXTURE_TOGGLE_OFF, "romfs:/toggleOff.png", true);
+	
 	if (isN3DS())
 		osSetSpeedupEnable(true);
 	
-	//makeDir();
-	//makeDir();
-	//makeDir();
+	if (!(dirExists(fsArchive, "/3ds/")))
+		makeDir(fsArchive, "/3ds");
+	if (!(dirExists(fsArchive, "/3ds/data/")))
+		makeDir(fsArchive, "/3ds/data");
+	if (!(dirExists(fsArchive, "/3ds/data/3dstool/")))
+		makeDir(fsArchive, "/3ds/data/3dstool");
+	
+	if (fileExists(fsArchive, "/3ds/data/3dstool/darkTheme.bin"))
+	{
+		int info = 0;
+		
+		FILE * read = fopen("/3ds/data/3dstool/darkTheme.bin", "r");
+		fscanf(read, "%d", &info);
+		fclose(read);
+		
+		if (info == 0)
+			darkTheme = 0;
+		else 
+			darkTheme = 1;
+	}
+	else
+	{
+		setConfig("/3ds/data/3dstool/darkTheme.bin", false);
+		darkTheme = false;
+	}
+	
 }
 
 void termServices(void)
 {
 	osSetSpeedupEnable(0);
+	
+	screen_unload_texture(TEXTURE_TOGGLE_OFF);
+	screen_unload_texture(TEXTURE_TOGGLE_ON);
 	
 	screen_exit();
 	romfsExit();
@@ -76,6 +109,7 @@ void backupMenu(void)
 		
 		screen_draw_rect(0, 0, 400, 15, RGBA8(19, 23, 26, 255));
 		screen_draw_rect(0, 15, 400, 40, RGBA8(39, 50, 56, 255));
+		screen_draw_rect(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		selector_image_y = selector_y + (selector_yDistance * selection);
 		
@@ -83,17 +117,19 @@ void backupMenu(void)
 		
 		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Backup");
 		
-		screen_draw_rect(0, selector_image_y, 400, 30, RGBA8(230, 232, 232, 255));
+		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
-		screen_draw_string(10, 65, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Backup LocalFriendCodeSeed");
-		screen_draw_string(10, 125, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Backup SecureInfo");
+		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup LocalFriendCodeSeed");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup SecureInfo");
 		
 		hidScanInput();
 
 		u32 kDown = hidKeysDown();
 
 		screen_select(GFX_BOTTOM);
+		
+		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		if (kDown & KEY_DDOWN)
 			selection++;
@@ -130,9 +166,9 @@ void backupMenu(void)
 			mainMenu();
 		
 		if (R_FAILED(res))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Backup %s failed with err 0x%08x.", func, (unsigned int)res);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup %s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "%s backed-up successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s backed-up successfully.", func);
 		
 		screen_end_frame();
 	}
@@ -159,6 +195,7 @@ void restoreMenu(void)
 		
 		screen_draw_rect(0, 0, 400, 15, RGBA8(19, 23, 26, 255));
 		screen_draw_rect(0, 15, 400, 40, RGBA8(39, 50, 56, 255));
+		screen_draw_rect(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		selector_image_y = selector_y + (selector_yDistance * selection);
 		
@@ -166,17 +203,19 @@ void restoreMenu(void)
 		
 		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Restore");
 		
-		screen_draw_rect(0, selector_image_y, 400, 30, RGBA8(230, 232, 232, 255));
+		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
-		screen_draw_string(10, 65, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Restore LocalFriendCodeSeed");
-		screen_draw_string(10, 125, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Restore SecureInfo");
+		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore LocalFriendCodeSeed");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore SecureInfo");
 		
 		hidScanInput();
 
 		u32 kDown = hidKeysDown();
 
 		screen_select(GFX_BOTTOM);
+		
+		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		if (kDown & KEY_DDOWN)
 			selection++;
@@ -213,9 +252,9 @@ void restoreMenu(void)
 			mainMenu();
 		
 		if (R_FAILED(res))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Restore %s failed with err 0x%08x.", func, (unsigned int)res);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore %s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "%s restored successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s restored successfully.", func);
 		
 		screen_end_frame();
 	}
@@ -242,6 +281,7 @@ void advancedWipe(void)
 		
 		screen_draw_rect(0, 0, 400, 15, RGBA8(19, 23, 26, 255));
 		screen_draw_rect(0, 15, 400, 40, RGBA8(39, 50, 56, 255));
+		screen_draw_rect(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		selector_image_y = selector_y + (selector_yDistance * selection);
 		
@@ -249,19 +289,21 @@ void advancedWipe(void)
 		
 		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Advanced Wipe");
 		
-		screen_draw_rect(0, selector_image_y, 400, 30, RGBA8(230, 232, 232, 255));
+		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
-		screen_draw_string(10, 65, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wipe all temporary titles");
-		screen_draw_string(10, 125, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wipe all expired titles");
-		screen_draw_string(10, 155, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wipe all TWL titles");
-		screen_draw_string(10, 185, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wipe config");
+		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all temporary titles");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all expired titles");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all TWL titles");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe config");
 		
 		hidScanInput();
 
 		u32 kDown = hidKeysDown();
 
 		screen_select(GFX_BOTTOM);
+		
+		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		if (kDown & KEY_DDOWN)
 			selection++;
@@ -310,9 +352,9 @@ void advancedWipe(void)
 			mainMenu();
 		
 		if (R_FAILED(res))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wipe %s failed with err 0x%08x.", func, (unsigned int)res);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe %s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Wiped %s successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wiped %s successfully.", func);
 		
 		screen_end_frame();
 	}
@@ -324,7 +366,7 @@ void miscMenu(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 3;
+	int max_items = 4;
 	
 	Result res = 0;
 	
@@ -339,6 +381,7 @@ void miscMenu(void)
 		
 		screen_draw_rect(0, 0, 400, 15, RGBA8(19, 23, 26, 255));
 		screen_draw_rect(0, 15, 400, 40, RGBA8(39, 50, 56, 255));
+		screen_draw_rect(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		selector_image_y = selector_y + (selector_yDistance * selection);
 		
@@ -346,17 +389,22 @@ void miscMenu(void)
 		
 		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Miscellaneous");
 		
-		screen_draw_rect(0, selector_image_y, 400, 30, RGBA8(230, 232, 232, 255));
+		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
-		screen_draw_string(10, 65, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Verify sig LocalFriendCodeSeed");
-		screen_draw_string(10, 125, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Verify sig SecureInfo");
+		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify LocalFriendCodeSeed sig");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify SecureInfo sig");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dark theme");
+		
+		darkTheme? screen_draw_texture(TEXTURE_TOGGLE_ON, 350, 145) : screen_draw_texture(TEXTURE_TOGGLE_OFF, 350, 145);
 		
 		hidScanInput();
 
 		u32 kDown = hidKeysDown();
 
 		screen_select(GFX_BOTTOM);
+		
+		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		if (kDown & KEY_DDOWN)
 			selection++;
@@ -386,6 +434,19 @@ void miscMenu(void)
 					selection = 1;
 					isSelected = true;
 					break;
+				case 4:
+					if (darkTheme == false)
+					{
+						setConfig("/3ds/data/3dstool/darkTheme.bin", true);
+						darkTheme = true;
+					}
+					else
+					{
+						setConfig("/3ds/data/3dstool/darkTheme.bin", false);
+						darkTheme = false;
+					}
+						
+					break;
 			}
 		}
 		
@@ -393,9 +454,9 @@ void miscMenu(void)
 			mainMenu();
 		
 		if (R_FAILED(res))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Verify %s failed with err 0x%08x.", func, (unsigned int)res);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify %s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Verified %s successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verified %s successfully.", func);
 		
 		screen_end_frame();
 	}
@@ -409,8 +470,8 @@ void mainMenu(void)
 	
 	int max_items = 5;
 	
-	screen_clear(GFX_TOP, RGBA8(250, 250, 250, 255));
-	screen_clear(GFX_BOTTOM, RGBA8(250, 250, 250, 255));
+	screen_clear(GFX_TOP, CLEAR_COLOR);
+	screen_clear(GFX_BOTTOM, CLEAR_COLOR);
 	
 	while (aptMainLoop())
 	{
@@ -419,6 +480,7 @@ void mainMenu(void)
 		
 		screen_draw_rect(0, 0, 400, 15, RGBA8(19, 23, 26, 255));
 		screen_draw_rect(0, 15, 400, 40, RGBA8(39, 50, 56, 255));
+		screen_draw_rect(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		selector_image_y = selector_y + (selector_yDistance * selection);
 		
@@ -426,13 +488,13 @@ void mainMenu(void)
 		
 		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "3DS Tool");
 		
-		screen_draw_rect(0, selector_image_y, 400, 30, RGBA8(230, 232, 232, 255));
+		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
-		screen_draw_string(10, 65, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Back-up");
-		screen_draw_string(10, 95, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Restore");
-		screen_draw_string(10, 125, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Advanced wipe");
-		screen_draw_string(10, 155, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Misc");
-		screen_draw_string(10, 185, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "Exit");
+		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back-up");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Advanced wipe");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Misc");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Exit");
 		
 		hidScanInput();
 
@@ -441,7 +503,11 @@ void mainMenu(void)
 			break; // break in order to return to hbmenu
 
 		screen_select(GFX_BOTTOM);
-		screen_draw_stringf(2, 225, 0.41f, 0.41f, RGBA8(54, 54, 54, 255), "3DS Tool v%i.%i0 - %d%02d%02d", VERSION_MAJOR, VERSION_MINOR, YEAR, MONTH, DAY);
+		
+		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		
+		screen_draw_stringf(2, 225, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "3DS Tool v%i.%i0 - %d%02d%02d", VERSION_MAJOR, VERSION_MINOR, YEAR, MONTH, DAY);
+		
 		screen_end_frame();
 		
 		if (kDown & KEY_DDOWN)

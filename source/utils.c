@@ -1,18 +1,5 @@
+#include "fs.h"
 #include "utils.h"
-
-void getSizeString(char *string, uint64_t size) //Thanks TheOfficialFloW
-{
-	double double_size = (double)size;
-
-	int i = 0;
-	static char *units[] = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
-	while (double_size >= 1024.0f) {
-		double_size /= 1024.0f;
-		i++;
-	}
-
-	sprintf(string, "%.*f %s", (i == 0) ? 0 : 2, double_size, units[i]);
-}
 
 bool isN3DS(void)
 {
@@ -25,11 +12,10 @@ bool isN3DS(void)
 		return false;
 }
 
-void utf2ascii(char* dst, u16* src)
+void setConfig(const char * path, bool set) // using individual txt files for configs for now (plan to change this later when there's more options)
 {
-	if(!src || !dst)
-		return;
-	
-	while(*src)*(dst++)=(*(src++))&0xFF;
-	*dst=0x00;
+	if (set == true)
+		writeFile(path, "1");
+	else
+		writeFile(path, "0");
 }
