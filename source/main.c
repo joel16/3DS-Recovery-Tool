@@ -292,11 +292,11 @@ void advancedWipe(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 5;
+	int max_items = 6;
 	
 	Result res = 0;
 	
-	char func[17];
+	char func[18];
 	
 	bool isSelected = false;
 	
@@ -322,6 +322,7 @@ void advancedWipe(void)
 		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all expired titles");
 		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all TWL titles");
 		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe config");
+		screen_draw_string(10, 215, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe parental controls");
 		
 		hidScanInput();
 
@@ -368,6 +369,12 @@ void advancedWipe(void)
 				case 5:
 					res = CFGI_FormatConfig();
 					snprintf(func, 7, "config");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 6:
+					res = CFGI_ClearParentalControls();
+					snprintf(func, 18, "parental controls");
 					selection = 1;
 					isSelected = true;
 					break;

@@ -64,6 +64,19 @@ Result CFGI_FormatConfig(void)
 	return cmdbuf[1];
 }
 
+Result CFGI_ClearParentalControls(void) 
+{
+	Result ret = 0;
+	u32 * cmdbuf = getThreadCommandBuffer();
+
+	cmdbuf[0] = IPC_MakeHeader(0x40F, 0, 0); // 0x040F0000
+
+	if (R_FAILED(ret = svcSendSyncRequest(cfgiHandle)))
+		return ret;
+
+	return cmdbuf[1];
+}
+
 Result CFGI_VerifySigLocalFriendCodeSeed(void) 
 {
 	Result ret = 0;
