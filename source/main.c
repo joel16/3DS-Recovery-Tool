@@ -46,6 +46,17 @@ void initServices(void)
 		makeDir(fsArchive, "/3ds/data");
 	if (!(dirExists(fsArchive, "/3ds/data/3dstool/")))
 		makeDir(fsArchive, "/3ds/data/3dstool");
+	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/")))
+		makeDir(fsArchive, "/3ds/data/3dstool/backups");
+	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/nand/")))
+	{
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand");
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro");
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw");
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro/sys");
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw/sys");
+		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/private");
+	}
 	
 	if (fileExists(fsArchive, "/3ds/data/3dstool/darkTheme.bin"))
 	{
@@ -94,7 +105,7 @@ void backupMenu(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 3;
+	int max_items = 5;
 	
 	Result res = 0;
 	
@@ -122,6 +133,8 @@ void backupMenu(void)
 		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
 		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup LocalFriendCodeSeed");
 		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup SecureInfo");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup moveable.sed");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup HWCAL");
 		
 		hidScanInput();
 
@@ -148,14 +161,27 @@ void backupMenu(void)
 				case 1:
 					mainMenu();
 				case 2:
-					res = copy_file_archive("/rw/sys/LocalFriendCodeSeed_B", "/3ds/LocalFriendCodeSeed_B");
+					res = copy_file("/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					res = copy_file_archive("/rw/sys/SecureInfo_A", "/3ds/SecureInfo_A");
+					res = copy_file("/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
 					snprintf(func, 11, "SecureInfo");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 4:
+					res = copy_file("/private/movable.sed", "/3ds/data/3dstool/backups/nand/private/movable.sed");
+					snprintf(func, 12, "movable.sed");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 5:
+					res = copy_file("/ro/sys/HWCAL0.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL0.dat");
+					res = copy_file("/ro/sys/HWCAL1.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL1.dat");
+					snprintf(func, 6, "HWCAL");
 					selection = 1;
 					isSelected = true;
 					break;

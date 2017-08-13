@@ -15,7 +15,7 @@ void closeArchive(FS_ArchiveID id)
 
 Result makeDir(FS_Archive archive, const char * path)
 {
-	if((!archive) || (!path))
+	if ((!archive) || (!path))
 		return -1;
 	
 	return FSUSER_CreateDirectory(archive, fsMakePath(PATH_ASCII, path), 0);
@@ -23,19 +23,19 @@ Result makeDir(FS_Archive archive, const char * path)
 
 bool fileExists(FS_Archive archive, const char * path)
 {
-	if((!path) || (!archive))
+	if ((!path) || (!archive))
 		return false;
 	
 	Handle handle;
 
 	Result ret = FSUSER_OpenFile(&handle, archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
 	
-	if(ret != 0)
+	if (R_FAILED(ret))
 		return false;
 
 	ret = FSFILE_Close(handle);
 	
-	if(ret != 0)
+	if (R_FAILED(ret))
 		return false;
 	
 	return true;
@@ -43,60 +43,34 @@ bool fileExists(FS_Archive archive, const char * path)
 
 bool dirExists(FS_Archive archive, const char * path)
 {	
-	if((!path) || (!archive))
+	if ((!path) || (!archive))
 		return false;
 	
 	Handle handle;
 
 	Result ret = FSUSER_OpenDirectory(&handle, archive, fsMakePath(PATH_ASCII, path));
 	
-	if(ret != 0)
+	if (R_FAILED(ret))
 		return false;
 
 	ret = FSDIR_Close(handle);
 	
-	if(ret != 0)
+	if (R_FAILED(ret))
 		return false;
 	
 	return true;
 }
 
-Result copy_file_archive(const char * src, const char * dst)
+u64 getFileSize(FS_Archive archive, const char * path)
 {
-	u64 size = 0;
-	u32 bytesRead = 0;
-	
-	openArchive(ARCHIVE_NAND_CTR_FS);
-	
+	u64 st_size;
 	Handle handle;
-	Result res = FSUSER_OpenFile(&handle, fsArchive, fsMakePath(PATH_ASCII, src), FS_OPEN_READ, 0);
+
+	FSUSER_OpenFile(&handle, archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
+	FSFILE_GetSize(handle, &st_size);
+	FSFILE_Close(handle);
 	
-	if (R_FAILED(res)) 
-		return res;
-	
-	else if (R_SUCCEEDED(res))
-    {
-        FSFILE_GetSize(handle, &size);
-		
-		char * buf = malloc(size);
-		memset(buf, 0, size);
-		
-		FSFILE_Read(handle, &bytesRead, 0, buf, size);
-		FSFILE_Close(handle);
-		closeArchive(ARCHIVE_NAND_CTR_FS);
-		
-		FSUSER_CreateFile(fsArchive, fsMakePath(PATH_ASCII, dst), 0, size);
-		FSUSER_OpenFile(&handle, fsArchive, fsMakePath(PATH_ASCII, dst), FS_OPEN_WRITE, 0);
-		Result res = FSFILE_Write(handle, &bytesRead, 0, buf, size, FS_WRITE_FLUSH);
-		
-		if (R_FAILED(res))
-			return res;
-		
-		free(buf);
-		FSFILE_Close(handle);
-    }
-	
-	return res;
+	return st_size;
 }
 
 Result writeFile(const char * path, const char * buf)
@@ -116,4 +90,59 @@ Result writeFile(const char * path, const char * buf)
 	ret = FSFILE_Close(handle);
 	
 	return ret == 0 ? 0 : -1;
+}
+
+Result copy_file(char * old_path, char * new_path)
+{
+	int chunksize = (512 * 1024);
+	char * buffer = (char *)malloc(chunksize);
+
+	u32 bytesWritten = 0, bytesRead = 0;
+	u64 offset = 0;
+	Result ret = 0;
+	
+	Handle inputHandle, outputHandle;
+
+	openArchive(ARCHIVE_NAND_CTR_FS);
+	Result in = FSUSER_OpenFileDirectly(&inputHandle, ARCHIVE_NAND_CTR_FS, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, old_path), FS_OPEN_READ, 0);
+	
+	u64 size = getFileSize(fsArchive, old_path);
+
+	if (R_SUCCEEDED(in))
+	{
+		// Delete output file (if existing)
+		FSUSER_DeleteFile(fsArchive, fsMakePath(PATH_ASCII, new_path));
+
+		Result out = FSUSER_OpenFileDirectly(&outputHandle, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, new_path), (FS_OPEN_CREATE | FS_OPEN_WRITE), 0);
+		
+		if (R_SUCCEEDED(out))
+		{
+			// Copy loop (512KB at a time)
+			do
+			{
+				ret = FSFILE_Read(inputHandle, &bytesRead, offset, buffer, chunksize);
+				
+				bytesWritten += FSFILE_Write(outputHandle, &bytesWritten, offset, buffer, size, FS_WRITE_FLUSH);
+				
+				if (bytesWritten == bytesRead)
+					break;
+			}
+			while(bytesRead);
+
+			ret = FSFILE_Close(outputHandle);
+			
+			if (bytesRead != bytesWritten) 
+				return ret;
+		}
+		else 
+			return out;
+
+		FSFILE_Close(inputHandle);
+		closeArchive(ARCHIVE_NAND_CTR_FS);
+	}
+	else 
+		return in;
+
+	free(buffer);
+	return ret;
 }
