@@ -18,3 +18,17 @@ Result setConfig(const char * path, bool set) // using individual txt files for 
 	
 	return writeFile(path, "0");
 }
+
+u16 touchGetX(void)
+{
+	touchPosition pos;	
+	hidTouchRead(&pos);
+	return pos.px;
+}
+
+u16 touchGetY(void)
+{
+	touchPosition pos;	
+	hidTouchRead(&pos);
+	return pos.py;
+}
