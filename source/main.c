@@ -23,7 +23,7 @@ jmp_buf exitJmp;
 
 void initServices(void)
 {
-	_amInit();
+	amGetServiceHandle();
 	cfgiInit();
 	fsInit();
 	sdmcInit();
@@ -94,7 +94,7 @@ void termServices(void)
 	sdmcExit();
 	fsExit();
 	cfgiExit();
-	_amExit();
+	amCloseServiceHandle();
 }
 
 void mainMenu(void);
@@ -141,7 +141,6 @@ void backupMenu(void)
 		u32 kDown = hidKeysDown();
 
 		screen_select(GFX_BOTTOM);
-		
 		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
 		if (kDown & KEY_DDOWN)
@@ -161,13 +160,21 @@ void backupMenu(void)
 				case 1:
 					mainMenu();
 				case 2:
-					res = copy_file("/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
+					if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_B"))
+						res = copy_file("/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
+					else if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_A"))
+						res = copy_file("/rw/sys/LocalFriendCodeSeed_A", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					res = copy_file("/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
+					if (fileExistsNand("/rw/sys/SecureInfo_C"))
+						res = copy_file("/rw/sys/SecureInfo_C", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_C");
+					if (fileExistsNand("/rw/sys/SecureInfo_A"))
+						res = copy_file("/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
+					else if (fileExistsNand("/rw/sys/SecureInfo_B"))
+						res = copy_file("/rw/sys/SecureInfo_B", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B");
 					snprintf(func, 11, "SecureInfo");
 					selection = 1;
 					isSelected = true;
@@ -296,7 +303,7 @@ void advancedWipe(void)
 	
 	Result res = 0;
 	
-	char func[18];
+	char func[27];
 	
 	bool isSelected = false;
 	
@@ -318,11 +325,11 @@ void advancedWipe(void)
 		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
 		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all temporary titles");
-		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all expired titles");
-		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all TWL titles");
-		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe config");
-		screen_draw_string(10, 215, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe parental controls");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all temporary and expired titles");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all TWL titles");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe config");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe parental controls");
+		screen_draw_string(10, 215, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all data");
 		
 		hidScanInput();
 
@@ -350,31 +357,31 @@ void advancedWipe(void)
 					mainMenu();
 				case 2:
 					res = AM_DeleteAllTemporaryTitles();
-					snprintf(func, 17, "temporary titles");
+					res = AM_DeleteAllExpiredTitles(MEDIATYPE_SD);
+					snprintf(func, 27, "temporary & expired titles");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					res = AM_DeleteAllExpiredTitles(MEDIATYPE_SD);
-					snprintf(func, 15, "expired titles");
-					selection = 1;
-					isSelected = true;
-					break;
-				case 4:
 					res = AM_DeleteAllTwlTitles();
 					snprintf(func, 11, "TWL titles");
 					selection = 1;
 					isSelected = true;
 					break;
-				case 5:
+				case 4:
 					res = CFGI_FormatConfig();
 					snprintf(func, 7, "config");
 					selection = 1;
 					isSelected = true;
 					break;
-				case 6:
+				case 5:
 					res = CFGI_ClearParentalControls();
 					snprintf(func, 18, "parental controls");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 6:
+					snprintf(func, 5, "NNID");
 					selection = 1;
 					isSelected = true;
 					break;
@@ -387,7 +394,7 @@ void advancedWipe(void)
 		if (R_FAILED(res))
 			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe %s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wiped %s successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe %s failed with err 0x%08x.", func, (unsigned int)res);
 		
 		screen_end_frame();
 	}
@@ -519,7 +526,7 @@ void mainMenu(void)
 		
 		digitalTime();
 		
-		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "3DS Tool");
+		screen_draw_string(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "3DS Recovery Tool");
 		
 		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
@@ -533,13 +540,13 @@ void mainMenu(void)
 
 		u32 kDown = hidKeysDown();
 		if (kDown & KEY_START)
-			break; // break in order to return to hbmenu
+			longjmp(exitJmp, 1);
 
 		screen_select(GFX_BOTTOM);
 		
 		screen_draw_rect(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-		screen_draw_stringf(2, 225, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "3DS Tool v%i.%i0 - %d%02d%02d", VERSION_MAJOR, VERSION_MINOR, YEAR, MONTH, DAY);
+		screen_draw_stringf(2, 225, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "3DS Recovery Tool v%i.%i0 - %d%02d%02d", VERSION_MAJOR, VERSION_MINOR, YEAR, MONTH, DAY);
 		
 		screen_end_frame();
 		

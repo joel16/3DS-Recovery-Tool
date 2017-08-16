@@ -2,7 +2,7 @@
 
 static Handle amHandle;
 
-Result _amInit(void)
+Result amGetServiceHandle(void)
 {
 	Result ret = srvGetServiceHandle(&amHandle, "am:net");
 	if (R_FAILED(ret)) ret = srvGetServiceHandle(&amHandle, "am:u");
@@ -11,7 +11,7 @@ Result _amInit(void)
 	return ret;
 }
 
-Result _amExit(void)
+Result amCloseServiceHandle(void)
 {
 	return svcCloseHandle(amHandle);
 }

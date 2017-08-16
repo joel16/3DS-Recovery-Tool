@@ -41,6 +41,34 @@ bool fileExists(FS_Archive archive, const char * path)
 	return true;
 }
 
+bool fileExistsNand(const char * path)
+{
+	if (!path)
+		return false;
+	
+	Handle handle;
+
+	openArchive(ARCHIVE_NAND_CTR_FS);
+	Result ret = FSUSER_OpenFileDirectly(&handle, ARCHIVE_NAND_CTR_FS, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0);
+	
+	if (R_FAILED(ret))
+	{
+		closeArchive(ARCHIVE_NAND_CTR_FS);
+		return false;
+	}
+
+	ret = FSFILE_Close(handle);
+	
+	if (R_FAILED(ret))
+	{
+		closeArchive(ARCHIVE_NAND_CTR_FS);
+		return false;
+	}
+	
+	closeArchive(ARCHIVE_NAND_CTR_FS);
+	return true;
+}
+
 bool dirExists(FS_Archive archive, const char * path)
 {	
 	if ((!path) || (!archive))
@@ -89,7 +117,7 @@ Result writeFile(const char * path, const char * buf)
 	ret = FSFILE_Write(handle, &written, size, buf, len, FS_WRITE_FLUSH);
 	ret = FSFILE_Close(handle);
 	
-	return ret == 0 ? 0 : -1;
+	return R_SUCCEEDED(ret)? 0 : -1;
 }
 
 Result copy_file(char * old_path, char * new_path)

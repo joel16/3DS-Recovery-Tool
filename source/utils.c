@@ -3,19 +3,18 @@
 
 bool isN3DS(void)
 {
-	bool isNew3DS = 0;
-	APT_CheckNew3DS(&isNew3DS);
-    
-	if (isNew3DS)
-		return true;
-	else
-		return false;
+	bool isNew3DS = false;
+	
+	if (R_SUCCEEDED(APT_CheckNew3DS(&isNew3DS)))
+		return isNew3DS;
+	
+	return false;
 }
 
-void setConfig(const char * path, bool set) // using individual txt files for configs for now (plan to change this later when there's more options)
+Result setConfig(const char * path, bool set) // using individual txt files for configs for now (plan to change this later when there's more options)
 {
-	if (set == true)
-		writeFile(path, "1");
-	else
-		writeFile(path, "0");
+	if (set)
+		return writeFile(path, "1");
+	
+	return writeFile(path, "0");
 }

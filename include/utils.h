@@ -8,9 +8,7 @@
 
 bool darkTheme;
 
-void getSizeString(char *string, uint64_t size);
 bool isN3DS(void);
-void utf2ascii(char* dst, u16* src);
-void setConfig(const char * path, bool set);
+Result setConfig(const char * path, bool set);
 
 #endif
