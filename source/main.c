@@ -431,7 +431,7 @@ void formatMenu(void)
 	
 	Result res = 0;
 	
-	char func[14];
+	char func[18];
 	
 	bool isSelected = false;
 	
@@ -491,10 +491,10 @@ void formatMenu(void)
 					}
 					break;
 				case 3:
-					if (R_SUCCEEDED(drawDialog("You will lose ALL ext data in nand.", "Do you wish to continue?")))
+					if (R_SUCCEEDED(drawDialog("You will lose ALL ext savedata in nand.", "Do you wish to continue?")))
 					{
 						res = FSUSER_DeleteAllExtSaveDataOnNand();
-						snprintf(func, 14, "NAND ext data");
+						snprintf(func, 18, "NAND ext savedata");
 						selection = 1;
 						isSelected = true;
 					}
