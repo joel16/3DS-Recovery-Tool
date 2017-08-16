@@ -1,4 +1,4 @@
-# 3DS-Tool
+# 3DS-Tool ![Github latest downloads](https://img.shields.io/github/downloads/joel16/3DS-Recovery-Tool/total.svg)
 A tool for restoring and backing-up unique data on the Nintendo 3DS
 
 # Features:
