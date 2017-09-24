@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "am.h"
-#include "cfg.h"
 #include "clock.h"
 #include "colours.h"
 #include "compile_date.h"
@@ -24,8 +22,8 @@ jmp_buf exitJmp;
 
 void initServices(void)
 {
-	amGetServiceHandle();
-	cfgiInit();
+	amInit();
+	cfguInit();
 	fsInit();
 	sdmcInit();
 	openArchive(ARCHIVE_SDMC);
@@ -94,8 +92,8 @@ void termServices(void)
 	closeArchive(ARCHIVE_SDMC);
 	sdmcExit();
 	fsExit();
-	cfgiExit();
-	amCloseServiceHandle();
+	cfguExit();
+	amExit();
 }
 
 void mainMenu(void);
@@ -270,13 +268,13 @@ void restoreMenu(void)
 					mainMenu();
 					break;
 				case 2:
-					res = CFGI_RestoreNANDLocalFriendCodeSeed();
+					res = CFGI_RestoreLocalFriendCodeSeed();
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					res = CFGI_RestoreNANDSecureInfo();
+					res = CFGI_RestoreSecureInfo();
 					snprintf(func, 11, "SecureInfo");
 					selection = 1;
 					isSelected = true;
