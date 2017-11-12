@@ -3,7 +3,6 @@
 #include <setjmp.h>
 
 #include <string.h>
-#include <stdio.h>
 
 #include "clock.h"
 #include "colours.h"
@@ -39,43 +38,8 @@ void initServices(void)
 	if (isN3DS())
 		osSetSpeedupEnable(true);
 	
-	if (!(dirExists(fsArchive, "/3ds/")))
-		makeDir(fsArchive, "/3ds");
-	if (!(dirExists(fsArchive, "/3ds/data/")))
-		makeDir(fsArchive, "/3ds/data");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/")))
-		makeDir(fsArchive, "/3ds/data/3dstool");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/")))
-		makeDir(fsArchive, "/3ds/data/3dstool/backups");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/nand/")))
-	{
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro/sys");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw/sys");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/private");
-	}
-	
-	if (fileExists(fsArchive, "/3ds/data/3dstool/darkTheme.bin"))
-	{
-		int info = 0;
-		
-		FILE * read = fopen("/3ds/data/3dstool/darkTheme.bin", "r");
-		fscanf(read, "%d", &info);
-		fclose(read);
-		
-		if (info == 0)
-			darkTheme = 0;
-		else 
-			darkTheme = 1;
-	}
-	else
-	{
-		setConfig("/3ds/data/3dstool/darkTheme.bin", false);
-		darkTheme = false;
-	}
-	
+	makeDirs();
+	loadConfig();
 }
 
 void termServices(void)
@@ -160,10 +124,12 @@ void backupMenu(void)
 					mainMenu();
 					break;
 				case 2:
+					
 					if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_B"))
 						res = copy_file("/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
 					else if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_A"))
 						res = copy_file("/rw/sys/LocalFriendCodeSeed_A", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
+					
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					selection = 1;
 					isSelected = true;
@@ -175,6 +141,7 @@ void backupMenu(void)
 						res = copy_file("/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
 					else if (fileExistsNand("/rw/sys/SecureInfo_B"))
 						res = copy_file("/rw/sys/SecureInfo_B", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B");
+					
 					snprintf(func, 11, "SecureInfo");
 					selection = 1;
 					isSelected = true;
@@ -522,9 +489,13 @@ void miscMenu(void)
 	
 	Result res = 0;
 	
-	char func[20];
+	char func[33];
 	
 	bool isSelected = false;
+	
+	u8 data[0x110];
+	FILE * fp;
+	CFGI_GetLocalFriendCodeSeedData(data);
 	
 	while (aptMainLoop())
 	{
@@ -544,9 +515,10 @@ void miscMenu(void)
 		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
 		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify LocalFriendCodeSeed sig");
-		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify SecureInfo sig");
-		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dark theme");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dump original LocalFriendCodeSeed data");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify LocalFriendCodeSeed sig");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify SecureInfo sig");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dark theme");
 		
 		darkTheme? screen_draw_texture(TEXTURE_TOGGLE_ON, 350, 145) : screen_draw_texture(TEXTURE_TOGGLE_OFF, 350, 145);
 		
@@ -576,28 +548,41 @@ void miscMenu(void)
 					mainMenu();
 					break;
 				case 2:
-					res = CFGI_VerifySigLocalFriendCodeSeed();
-					snprintf(func, 20, "LocalFriendCodeSeed");
+					if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_B"))
+					{
+						fp = fopen ("/3ds/data/3dstool/dumps/LocalFriendCodeSeed_B", "wb");
+						res = fwrite(data, 1, 0x110, fp);
+						fclose(fp);
+					}	
+					else if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_A"))
+					{
+						fp = fopen ("/3ds/data/3dstool/dumps/LocalFriendCodeSeed_A", "wb");
+						res = fwrite(data, 1, 0x110, fp);
+						fclose(fp);
+					}
+					
+					snprintf(func, 25, "LocalFriendCodeSeed dump");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					res = CFGI_VerifySigSecureInfo();
-					snprintf(func, 11, "SecureInfo");
+					res = CFGI_VerifySigLocalFriendCodeSeed();
+					snprintf(func, 33, "LocalFriendCodeSeed verification");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 4:
+					res = CFGI_VerifySigSecureInfo();
+					snprintf(func, 24, "SecureInfo verification");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 5:
 					if (darkTheme == false)
-					{
-						setConfig("/3ds/data/3dstool/darkTheme.bin", true);
 						darkTheme = true;
-					}
 					else
-					{
-						setConfig("/3ds/data/3dstool/darkTheme.bin", false);
 						darkTheme = false;
-					}
+					saveConfig(darkTheme);
 					break;
 			}
 		}
@@ -606,9 +591,9 @@ void miscMenu(void)
 			mainMenu();
 		
 		if (R_FAILED(res))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify %s failed with err 0x%08x.", func, (unsigned int)res);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s failed with err 0x%08x.", func, (unsigned int)res);
 		else if ((R_SUCCEEDED(res)) && (isSelected))
-			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verified %s successfully.", func);
+			screen_draw_stringf(10, 220, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s successful.", func);
 		
 		screen_end_frame();
 	}

@@ -101,7 +101,7 @@ u64 getFileSize(FS_Archive archive, const char * path)
 	return st_size;
 }
 
-Result writeFile(const char * path, const char * buf)
+Result writeFile(const char * path, void * buf)
 {
 	Handle handle;
 	u32 len = strlen(buf);

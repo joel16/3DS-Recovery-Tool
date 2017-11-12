@@ -7,8 +7,10 @@
 
 bool darkTheme;
 
+Result saveConfig(bool dark_theme);
+Result loadConfig(void);
+void makeDirs(void);
 bool isN3DS(void);
-Result setConfig(const char * path, bool set);
 u16 touchGetX(void);
 u16 touchGetY(void);
 
