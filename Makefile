@@ -35,7 +35,7 @@ INCLUDES	:=	include include/graphics
 ROMFS		:=	romfs
 
 APP_TITLE		:= 3DS Recovery Tool
-APP_DESCRIPTION	:= Tool for restoring and backup. 
+APP_DESCRIPTION	:= Restore and backup misc data. 
 APP_AUTHOR		:= Joel16
 
 ICON 		:= $(RESOURCES)/icon.png
@@ -52,7 +52,7 @@ APP_ROMFS_DIR		:= $(TOPDIR)/romfs
 RSF_FILE			:= resources/cia.rsf
 
 VERSION_MAJOR := 1
-VERSION_MINOR := 1
+VERSION_MINOR := 2
 
 #---------------------------------------------------------------------------------
 # options for code generation
