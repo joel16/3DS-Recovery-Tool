@@ -14,7 +14,7 @@ Result saveConfig(bool dark_theme)
 	char * buf = (char *)malloc(1024);
 	snprintf(buf, 1024, configFile, dark_theme);
 	
-	if (R_FAILED(ret = writeFile("/3ds/data/3dstool/config.cfg", buf)))
+	if (R_FAILED(ret = writeFile(sdmcArchive, ARCHIVE_SDMC, "/3ds/data/3dstool/config.cfg", buf)))
 		return ret;
 	
 	free(buf);
@@ -26,7 +26,7 @@ Result loadConfig(void)
 	Handle handle;
 	Result ret = 0;
 	
-	if (!fileExists(fsArchive, "/3ds/data/3dstool/config.cfg"))
+	if (!fileExists(sdmcArchive, "/3ds/data/3dstool/config.cfg"))
 	{
 		darkTheme = false;
 		return saveConfig(darkTheme);
@@ -62,24 +62,24 @@ Result loadConfig(void)
 
 void makeDirs(void)
 {
-	if (!(dirExists(fsArchive, "/3ds/")))
-		makeDir(fsArchive, "/3ds");
-	if (!(dirExists(fsArchive, "/3ds/data/")))
-		makeDir(fsArchive, "/3ds/data");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/")))
-		makeDir(fsArchive, "/3ds/data/3dstool");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/")))
-		makeDir(fsArchive, "/3ds/data/3dstool/backups");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/dumps/")))
-		makeDir(fsArchive, "/3ds/data/3dstool/dumps");
-	if (!(dirExists(fsArchive, "/3ds/data/3dstool/backups/nand/")))
+	if (!(dirExists(sdmcArchive, "/3ds/")))
+		makeDir(sdmcArchive, "/3ds");
+	if (!(dirExists(sdmcArchive, "/3ds/data/")))
+		makeDir(sdmcArchive, "/3ds/data");
+	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/")))
+		makeDir(sdmcArchive, "/3ds/data/3dstool");
+	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/backups/")))
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups");
+	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/dumps/")))
+		makeDir(sdmcArchive, "/3ds/data/3dstool/dumps");
+	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/")))
 	{
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/ro/sys");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/rw/sys");
-		makeDir(fsArchive, "/3ds/data/3dstool/backups/nand/private");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/ro");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/ro/sys");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys");
+		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/private");
 	}
 }
 

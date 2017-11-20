@@ -25,7 +25,8 @@ void initServices(void)
 	cfguInit();
 	fsInit();
 	sdmcInit();
-	openArchive(ARCHIVE_SDMC);
+	openArchive(&sdmcArchive, ARCHIVE_SDMC);
+	openArchive(&nandArchive, ARCHIVE_NAND_CTR_FS);
 	
 	gfxInitDefault();
 	gfxSet3D(false);
@@ -53,7 +54,8 @@ void termServices(void)
 	romfsExit();
 	gfxExit();
 	
-	closeArchive(ARCHIVE_SDMC);
+	closeArchive(nandArchive);
+	closeArchive(sdmcArchive);
 	sdmcExit();
 	fsExit();
 	cfguExit();
@@ -94,8 +96,8 @@ void backupMenu(void)
 		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
 		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup LocalFriendCodeSeed");
-		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup SecureInfo");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup NAND LocalFriendCodeSeed");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup NAND SecureInfo");
 		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup moveable.sed");
 		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup HWCAL");
 		
@@ -124,37 +126,36 @@ void backupMenu(void)
 					mainMenu();
 					break;
 				case 2:
-					
-					if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_B"))
-						res = copy_file("/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
-					else if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_A"))
-						res = copy_file("/rw/sys/LocalFriendCodeSeed_A", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
+					if (fileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_B"))
+						res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/LocalFriendCodeSeed_B", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
+					else if (fileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_A"))
+						res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/LocalFriendCodeSeed_A", "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
 					
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 3:
-					if (fileExistsNand("/rw/sys/SecureInfo_C"))
-						res = copy_file("/rw/sys/SecureInfo_C", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_C");
-					if (fileExistsNand("/rw/sys/SecureInfo_A"))
-						res = copy_file("/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
-					else if (fileExistsNand("/rw/sys/SecureInfo_B"))
-						res = copy_file("/rw/sys/SecureInfo_B", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B");
+					if (fileExists(nandArchive, "/rw/sys/SecureInfo_C"))
+						res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_C", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_C");
+					if (fileExists(nandArchive, "/rw/sys/SecureInfo_A"))
+						res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_A", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A");
+					else if (fileExists(nandArchive, "/rw/sys/SecureInfo_B"))
+						res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_B", "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B");
 					
 					snprintf(func, 11, "SecureInfo");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 4:
-					res = copy_file("/private/movable.sed", "/3ds/data/3dstool/backups/nand/private/movable.sed");
+					res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/private/movable.sed", "/3ds/data/3dstool/backups/nand/private/movable.sed");
 					snprintf(func, 12, "movable.sed");
 					selection = 1;
 					isSelected = true;
 					break;
 				case 5:
-					res = copy_file("/ro/sys/HWCAL0.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL0.dat");
-					res = copy_file("/ro/sys/HWCAL1.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL1.dat");
+					res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/ro/sys/HWCAL0.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL0.dat");
+					res = copy_file(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/ro/sys/HWCAL1.dat", "/3ds/data/3dstool/backups/nand/ro/sys/HWCAL1.dat");
 					snprintf(func, 6, "HWCAL");
 					selection = 1;
 					isSelected = true;
@@ -180,7 +181,7 @@ void restoreMenu(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 3;
+	int max_items = 5;
 	
 	Result res = 0;
 	
@@ -206,8 +207,10 @@ void restoreMenu(void)
 		screen_draw_rect(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
 		
 		screen_draw_string(10, 65, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore LocalFriendCodeSeed");
-		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore SecureInfo");
+		screen_draw_string(10, 95, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore original LocalFriendCodeSeed");
+		screen_draw_string(10, 125, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore original SecureInfo");
+		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore backup LocalFriendCodeSeed");
+		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore backup SecureInfo");
 		
 		hidScanInput();
 
@@ -242,6 +245,27 @@ void restoreMenu(void)
 					break;
 				case 3:
 					res = CFGI_RestoreSecureInfo();
+					snprintf(func, 11, "SecureInfo");
+					selection = 1;
+					isSelected = true;
+				case 4:
+					if (fileExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B"))
+						res = copy_file(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_B", "/rw/sys/LocalFriendCodeSeed_B");
+					else if (fileExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A"))
+						res = copy_file(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/data/3dstool/backups/nand/rw/sys/LocalFriendCodeSeed_A", "/rw/sys/LocalFriendCodeSeed_A");
+					
+					snprintf(func, 20, "LocalFriendCodeSeed");
+					selection = 1;
+					isSelected = true;
+					break;
+				case 5:
+					if (fileExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_C"))
+						res = copy_file(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_C", "/rw/sys/SecureInfo_C");
+					if (fileExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A"))
+						res = copy_file(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_A", "/rw/sys/SecureInfo_A");
+					else if (fileExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B"))
+						res = copy_file(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/data/3dstool/backups/nand/rw/sys/SecureInfo_B", "/rw/sys/SecureInfo_B");
+					
 					snprintf(func, 11, "SecureInfo");
 					selection = 1;
 					isSelected = true;
@@ -485,7 +509,7 @@ void miscMenu(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 4;
+	int max_items = 5;
 	
 	Result res = 0;
 	
@@ -520,7 +544,7 @@ void miscMenu(void)
 		screen_draw_string(10, 155, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify SecureInfo sig");
 		screen_draw_string(10, 185, 0.41f, 0.41f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dark theme");
 		
-		darkTheme? screen_draw_texture(TEXTURE_TOGGLE_ON, 350, 145) : screen_draw_texture(TEXTURE_TOGGLE_OFF, 350, 145);
+		darkTheme? screen_draw_texture(TEXTURE_TOGGLE_ON, 350, 175) : screen_draw_texture(TEXTURE_TOGGLE_OFF, 350, 175);
 		
 		hidScanInput();
 
@@ -548,13 +572,13 @@ void miscMenu(void)
 					mainMenu();
 					break;
 				case 2:
-					if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_B"))
+					if (fileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_B"))
 					{
 						fp = fopen ("/3ds/data/3dstool/dumps/LocalFriendCodeSeed_B", "wb");
 						res = fwrite(data, 1, 0x110, fp);
 						fclose(fp);
 					}	
-					else if (fileExistsNand("/rw/sys/LocalFriendCodeSeed_A"))
+					else if (fileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_A"))
 					{
 						fp = fopen ("/3ds/data/3dstool/dumps/LocalFriendCodeSeed_A", "wb");
 						res = fwrite(data, 1, 0x110, fp);
