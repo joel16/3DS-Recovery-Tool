@@ -1,14 +1,14 @@
 BasicInfo:
-  Title                   : $(APP_TITLE)
-  ProductCode             : $(APP_PRODUCT_CODE)
+  Title                   : 3DS Recovery Tool
+  ProductCode             : CTR-3D-RECT
   Logo                    : Homebrew
 
 RomFs:
-  RootPath: $(APP_ROMFS)
+  RootPath                : romfs 
 
 TitleInfo:
   Category                : Application
-  UniqueId                : $(APP_UNIQUE_ID)
+  UniqueId                : 0x16600
 
 Option:
   UseOnSD                 : true # true if App is to be installed to SD

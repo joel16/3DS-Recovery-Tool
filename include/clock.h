@@ -3,8 +3,8 @@
 
 #include <3ds.h>
 
-#include <time.h>
-
-void digitalTime(void);
+char * Clock_GetCurrentTime(bool _12hour);
+char * Clock_GetDayOfWeek(bool brief);
+char * Clock_GetMonthOfYear(int style);
 
 #endif

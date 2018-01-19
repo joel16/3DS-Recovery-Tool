@@ -7,10 +7,9 @@
 
 bool darkTheme;
 
-Result saveConfig(bool dark_theme);
-Result loadConfig(void);
-void makeDirs(void);
-bool isN3DS(void);
+Result Utils_SaveConfig(bool dark_theme);
+Result Utils_LoadConfig(void);
+bool Utils_IsN3DS(void);
 u16 touchGetX(void);
 u16 touchGetY(void);
 

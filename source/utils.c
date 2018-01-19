@@ -7,32 +7,35 @@
 const char * configFile =
 	"dark_theme = %d\n";
 	
-Result saveConfig(bool dark_theme)
+Result Utils_SaveConfig(bool dark_theme)
 {
 	Result ret = 0;
 	
 	char * buf = (char *)malloc(1024);
 	snprintf(buf, 1024, configFile, dark_theme);
 	
-	if (R_FAILED(ret = writeFile(sdmcArchive, ARCHIVE_SDMC, "/3ds/data/3dstool/config.cfg", buf)))
+	if (R_FAILED(ret = FS_WriteFile(sdmcArchive, ARCHIVE_SDMC, "/3ds/3ds_rec_tool/config.cfg", buf)))
+	{
+		free(buf);
 		return ret;
+	}
 	
 	free(buf);
 	return 0;
 }	
 
-Result loadConfig(void)
+Result Utils_LoadConfig(void)
 {
 	Handle handle;
 	Result ret = 0;
 	
-	if (!fileExists(sdmcArchive, "/3ds/data/3dstool/config.cfg"))
+	if (!FS_FileExists(sdmcArchive, "/3ds/3ds_rec_tool/config.cfg"))
 	{
 		darkTheme = false;
-		return saveConfig(darkTheme);
+		return Utils_SaveConfig(darkTheme);
 	}
 	
-	if (R_FAILED(ret = FSUSER_OpenFileDirectly(&handle, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, "/3ds/data/3dstool/config.cfg"), FS_OPEN_READ, 0)))
+	if (R_FAILED(ret = FSUSER_OpenFileDirectly(&handle, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, "/3ds/3ds_rec_tool/config.cfg"), FS_OPEN_READ, 0)))
 		return ret;
 	
 	u64 size64 = 0;
@@ -47,43 +50,24 @@ Result loadConfig(void)
 	u32 bytesread = 0;
 	
 	if (R_FAILED(ret = FSFILE_Read(handle, &bytesread, 0, (u32 *)buf, size)))
+	{
+		free(buf);
 		return ret;
+	}
 	
 	buf[size] = '\0';
 	
 	sscanf(buf, configFile, &darkTheme);
+
+	free(buf);
 	
 	if (R_FAILED(ret = FSFILE_Close(handle)))
 		return ret;
-	
-	free(buf);
+
 	return 0;
 }
 
-void makeDirs(void)
-{
-	if (!(dirExists(sdmcArchive, "/3ds/")))
-		makeDir(sdmcArchive, "/3ds");
-	if (!(dirExists(sdmcArchive, "/3ds/data/")))
-		makeDir(sdmcArchive, "/3ds/data");
-	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/")))
-		makeDir(sdmcArchive, "/3ds/data/3dstool");
-	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/backups/")))
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups");
-	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/dumps/")))
-		makeDir(sdmcArchive, "/3ds/data/3dstool/dumps");
-	if (!(dirExists(sdmcArchive, "/3ds/data/3dstool/backups/nand/")))
-	{
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand");
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/ro");
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw");
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/ro/sys");
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/rw/sys");
-		makeDir(sdmcArchive, "/3ds/data/3dstool/backups/nand/private");
-	}
-}
-
-bool isN3DS(void)
+bool Utils_IsN3DS(void)
 {
 	bool isNew3DS = false;
 	

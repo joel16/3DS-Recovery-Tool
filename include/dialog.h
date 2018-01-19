@@ -3,6 +3,6 @@
 
 #include <3ds.h>
 
-Result drawDialog(const char * topMessage, const char * bottomMessage);
+Result Dialog_Draw(const char * topMessage, const char * bottomMessage);
 
 #endif

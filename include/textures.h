@@ -1,0 +1,23 @@
+#ifndef TEXTURES_H
+#define TEXTURES_H
+
+#define TEXTURE_TOGGLE_ON  0
+#define TEXTURE_TOGGLE_OFF 1
+
+#define TEXTURE_BATTERY_0      2
+#define TEXTURE_BATTERY_15     3
+#define TEXTURE_BATTERY_28     4
+#define TEXTURE_BATTERY_43     5
+#define TEXTURE_BATTERY_57     6
+#define TEXTURE_BATTERY_71     7
+#define TEXTURE_BATTERY_85     8
+#define TEXTURE_BATTERY_100    9
+#define TEXTURE_BATTERY_CHARGE 10
+
+#define TEXTURE_WIFI_NULL 11
+#define TEXTURE_WIFI_0    12
+#define TEXTURE_WIFI_1    13
+#define TEXTURE_WIFI_2    14
+#define TEXTURE_WIFI_3    15
+
+#endif
