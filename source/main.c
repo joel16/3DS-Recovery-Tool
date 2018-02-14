@@ -12,7 +12,8 @@
 #include "textures.h"
 #include "utils.h"
 
-#define selector_yDistance 30
+#define DISTANCE_Y    30
+#define LIST_PER_PAGE 6
 
 jmp_buf exitJmp;
 
@@ -113,7 +114,7 @@ void Menu_Backup(void)
 			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
 			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			selector_image_y = selector_y + (selector_yDistance * selection);
+			selector_image_y = selector_y + (DISTANCE_Y * selection);
 		
 			StatusBar_DisplayBar();
 		
@@ -225,7 +226,7 @@ void Menu_Restore(void)
 			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
 			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			selector_image_y = selector_y + (selector_yDistance * selection);
+			selector_image_y = selector_y + (DISTANCE_Y * selection);
 		
 			StatusBar_DisplayBar();
 		
@@ -315,17 +316,26 @@ void Menu_Restore(void)
 
 void Menu_Advanced_Wipe(void)
 {
-	int selection = 1;
-	int selector_y = 25; 
-	int selector_image_y = 0;
-	
-	int max_items = 6;
+	int selection = 0;
+	int max_items = 8;
 	
 	Result res = 0;
 	
 	char func[27];
 	
 	bool isSelected = false;
+
+	const char * wipe_list[] = 
+	{
+		"Back",
+		"Wipe all temporary and expired titles",
+		"Wipe all TWL titles",
+		"Wipe config",
+		"Wipe parental controls",
+		"Wipe all data (NAND)",
+		"Format SDMC root",
+		"Format NAND ext savedata"
+	};
 	
 	while (aptMainLoop())
 	{
@@ -335,20 +345,27 @@ void Menu_Advanced_Wipe(void)
 			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
 			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			selector_image_y = selector_y + (selector_yDistance * selection);
-		
 			StatusBar_DisplayBar();
 		
 			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Advanced Wipe");
-		
-			pp2d_draw_rectangle(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all temporary and expired titles");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all TWL titles");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe config");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe parental controls");
-			pp2d_draw_text(10, 215, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe all data (NAND)");
+
+			int printed = 0; // Print counter
+
+			for (int i = 0; i < max_items + 1; i++)
+			{
+				if (printed == LIST_PER_PAGE)
+					break;
+
+				if (selection < LIST_PER_PAGE || i > (selection - LIST_PER_PAGE))
+				{
+					if (i == selection)
+						pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * printed), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
+
+					pp2d_draw_text(10, 65 + (DISTANCE_Y * printed), 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, wipe_list[i]);
+
+					printed++;
+				}
+			}
 
 		pp2d_end_draw();
 
@@ -367,23 +384,28 @@ void Menu_Advanced_Wipe(void)
 		u32 kDown = hidKeysDown();
 			
 		if (kDown & KEY_DDOWN)
-			selection++;
+		{
+			if (selection < (max_items - 1))
+				selection++;
+			else 
+				selection = 0;
+		}
 		else if (kDown & KEY_DUP)
-			selection--;
-		
-		if (selection > max_items) 
-			selection = 1;
-		if (selection < 1) 
-			selection = max_items;
+		{
+			if (selection > 0)
+				selection--;
+			else 
+				selection = (max_items - 1);
+		}
 		
 		if (kDown & KEY_A)
 		{
 			switch(selection)
 			{
-				case 1:
+				case 0:
 					Menu_Main();
 					break;
-				case 2:
+				case 1:
 					if (R_SUCCEEDED(Dialog_Draw("You will lose all expired titles.", "Do you wish to continue?")))
 					{
 						res = AM_DeleteAllTemporaryTitles();
@@ -393,7 +415,7 @@ void Menu_Advanced_Wipe(void)
 						isSelected = true;
 					}
 					break;
-				case 3:
+				case 2:
 					if (R_SUCCEEDED(Dialog_Draw("You will lose all TWL titles.", "Do you wish to continue?")))
 					{
 						res = AM_DeleteAllTwlTitles();
@@ -402,7 +424,7 @@ void Menu_Advanced_Wipe(void)
 						isSelected = true;
 					}
 					break;
-				case 4:
+				case 3:
 					if (R_SUCCEEDED(Dialog_Draw("You will lose all data in Settings.", "Do you wish to continue?")))
 					{
 						res = CFGI_FormatConfig();
@@ -411,7 +433,7 @@ void Menu_Advanced_Wipe(void)
 						isSelected = true;
 					}
 					break;
-				case 5:
+				case 4:
 					if (R_SUCCEEDED(Dialog_Draw("This will disable parental controls.", "Do you wish to continue?")))
 					{
 						res = CFGI_ClearParentalControls();
@@ -420,7 +442,7 @@ void Menu_Advanced_Wipe(void)
 						isSelected = true;
 					}
 					break;
-				case 6:
+				case 5:
 					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL data.", "Do you wish to continue?")))
 					{
 						res = FSUSER_DeleteAllExtSaveDataOnNand();
@@ -430,82 +452,7 @@ void Menu_Advanced_Wipe(void)
 						isSelected = true;
 					}
 					break;
-			}
-		}
-		
-		else if (kDown & KEY_B)
-			Menu_Main();
-	}
-}
-
-void Menu_Format(void)
-{
-	int selection = 1;
-	int selector_y = 25; 
-	int selector_image_y = 0;
-	
-	int max_items = 3;
-	
-	Result res = 0;
-	
-	char func[18];
-	
-	bool isSelected = false;
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			selector_image_y = selector_y + (selector_yDistance * selection);
-		
-			StatusBar_DisplayBar();
-		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Format Data");
-		
-			pp2d_draw_rectangle(0, selector_image_y, 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Format SDMC root");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Format NAND ext savedata");
-
-		pp2d_end_draw();
-
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-
-			if (R_FAILED(res))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Format %s failed with err 0x%08x.", func, (unsigned int)res);
-			else if ((R_SUCCEEDED(res)) && (isSelected))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Format %s completed successfully.", func);
-		
-		pp2d_end_draw();
-
-		hidScanInput();
-		u32 kDown = hidKeysDown();
-			
-		if (kDown & KEY_DDOWN)
-			selection++;
-		else if (kDown & KEY_DUP)
-			selection--;
-		
-		if (selection > max_items) 
-			selection = 1;
-		if (selection < 1) 
-			selection = max_items;
-		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
-				case 1:
-					Menu_Main();
-					break;
-				case 2:
+				case 6:
 					if (R_SUCCEEDED(Dialog_Draw("You will ALL data in your SD.", "Do you wish to continue?")))
 					{
 						res = FSUSER_DeleteSdmcRoot();
@@ -514,7 +461,7 @@ void Menu_Format(void)
 						isSelected = true;
 					}
 					break;
-				case 3:
+				case 7:
 					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL ext savedata in nand.", "Do you wish to continue?")))
 					{
 						res = FSUSER_DeleteAllExtSaveDataOnNand();
@@ -522,7 +469,6 @@ void Menu_Format(void)
 						selection = 1;
 						isSelected = true;
 					}
-					break;
 			}
 		}
 		
@@ -557,7 +503,7 @@ void Menu_Misc(void)
 			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
 			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			selector_image_y = selector_y + (selector_yDistance * selection);
+			selector_image_y = selector_y + (DISTANCE_Y * selection);
 		
 			StatusBar_DisplayBar();
 		
@@ -657,7 +603,7 @@ void Menu_Main(void)
 	int selector_y = 25; 
 	int selector_image_y = 0;
 	
-	int max_items = 6;
+	int max_items = 5;
 	
 	pp2d_set_screen_color(GFX_TOP, 0x000000FF);
 	pp2d_set_screen_color(GFX_BOTTOM, 0x000000FF);
@@ -670,7 +616,7 @@ void Menu_Main(void)
 			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
 			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			selector_image_y = selector_y + (selector_yDistance * selection);
+			selector_image_y = selector_y + (DISTANCE_Y * selection);
 		
 			StatusBar_DisplayBar();
 		
@@ -681,9 +627,8 @@ void Menu_Main(void)
 			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back-up");
 			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore");
 			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Advanced wipe");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Format data");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Misc");
-			pp2d_draw_text(10, 215, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Exit");
+			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Misc");
+			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Exit");
 		
 		pp2d_end_draw();
 
@@ -725,12 +670,9 @@ void Menu_Main(void)
 					Menu_Advanced_Wipe();
 					break;
 				case 4:
-					Menu_Format();
-					break;
-				case 5:
 					Menu_Misc();
 					break;
-				case 6:
+				case 5:
 					longjmp(exitJmp, 1);
 					break;
 			}

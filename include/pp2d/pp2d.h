@@ -25,20 +25,28 @@
 
 /**
  * Plug & Play 2D
- * @file pp2d.h
+ * @file pp2d.c
  * @author Bernardo Giordano
- * @date 31 December 2017
- * @brief pp2d header
+ * @date 17 January 2018
+ * @brief pp2d implementation
  */
 
 #ifndef PP2D_H
 #define PP2D_H
+
+#include "lodepng.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <3ds.h>
+#include <citro3d.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
 #include "vshader_shbin.h"
 
 #define TOP_WIDTH 400
@@ -74,16 +82,18 @@ extern "C" {
 /**
  * @brief Converts a RGB565 color to RGBA8 color (adds maximum alpha)
  * @param rgb 565 to be converted
+ * @param a alpha
  */
-#define RGB565_TO_RGBA8(rgb) \
-	(RGBA8(((rgb>>11)&0x1F)*0xFF/0x1F, ((rgb>>5)&0x3F)*0xFF/0x3F, (rgb&0x1F)*0xFF/0x1F, 255))
+#define RGB565_TO_RGBA8(rgb, a) \
+	(RGBA8(((rgb>>11)&0x1F)*0xFF/0x1F, ((rgb>>5)&0x3F)*0xFF/0x3F, (rgb&0x1F)*0xFF/0x1F, a&0xFF))
 	
 /**
  * @brief Converts a RGB565 color to ABGR8 color (adds maximum alpha)
  * @param rgb 565 to be converted
+ * @param a alpha
  */
-#define RGB565_TO_ABGR8(rgb) \
-	(RGBA8(255, (rgb&0x1F)*0xFF/0x1F, ((rgb>>5)&0x3F)*0xFF/0x3F, ((rgb>>11)&0x1F)*0xFF/0x1F))
+#define RGB565_TO_ABGR8(rgb, a) \
+	(RGBA8(a&0xFF, (rgb&0x1F)*0xFF/0x1F, ((rgb>>5)&0x3F)*0xFF/0x3F, ((rgb>>11)&0x1F)*0xFF/0x1F))
 
 #define BACKGROUND_COLOR ABGR8(255, 0, 0, 0)
 #define PP2D_NEUTRAL RGBA8(255, 255, 255, 255)
@@ -278,14 +288,10 @@ void pp2d_draw_wtext_wrap(float x, float y, float scaleX, float scaleY, u32 colo
  */
 void pp2d_draw_wtextf(float x, float y, float scaleX, float scaleY, u32 color, const wchar_t* text, ...);
 
-/**
- * @brief Ends a frame
- */
+/// Ends a frame
 void pp2d_end_draw(void);
 
-/**
- * @brief Frees the pp2d environment
- */
+/// Frees the pp2d environment
 void pp2d_exit(void);
 
 /**
@@ -368,20 +374,6 @@ float pp2d_get_texture_height(size_t id);
  * @param id of the texture to free
  */
 void pp2d_free_texture(size_t id);
-
-/**
- * @brief Loads a texture from a bmp file
- * @param id of the texture
- * @param path where the bmp file is located
- */
-void pp2d_load_texture_bmp(size_t id, const char* path);
-
-/**
- * @brief Loads a texture from a jpg/gif file
- * @param id of the texture
- * @param path where the jpg file is located
- */
-void pp2d_load_texture_other(size_t id, const char* path);
 
 /**
  * @brief Loads a texture from a a buffer in memory
@@ -478,9 +470,7 @@ void pp2d_texture_rotate(float angle);
  */
 void pp2d_texture_depth(float depth);
 
-/**
- * @brief Renders a texture
- */
+/// Renders a texture
 void pp2d_texture_draw(void);
 
 #ifdef __cplusplus
