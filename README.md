@@ -12,5 +12,4 @@ A tool for dumping, restoring, and backing-up unique data on the Nintendo 3DS. I
 - Format (delete) SMDC root and NAND ext savedata.
 
 # Credits:
-- Bernardo Giordano - for PP2D.
 - preetisketch - for the banner and the toggle buttons.
