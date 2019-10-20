@@ -1,23 +1,12 @@
-#ifndef TEXTURES_H
-#define TEXTURES_H
+#ifndef _3DS_RECOVERY_TOOL_TEXTURES_H
+#define _3DS_RECOVERY_TOOL_TEXTURES_H
 
-#define TEXTURE_TOGGLE_ON  0
-#define TEXTURE_TOGGLE_OFF 1
+C2D_Image icon_toggle_on, icon_toggle_off, icon_back, icon_wifi_0, icon_wifi_1, icon_wifi_2, icon_wifi_3, \
+	battery_20, battery_20_charging, battery_30, battery_30_charging, battery_50, battery_50_charging, \
+	battery_60, battery_60_charging, battery_80, battery_80_charging, battery_90, battery_90_charging, \
+	battery_full, battery_full_charging, battery_low, battery_unknown;
 
-#define TEXTURE_BATTERY_0      2
-#define TEXTURE_BATTERY_15     3
-#define TEXTURE_BATTERY_28     4
-#define TEXTURE_BATTERY_43     5
-#define TEXTURE_BATTERY_57     6
-#define TEXTURE_BATTERY_71     7
-#define TEXTURE_BATTERY_85     8
-#define TEXTURE_BATTERY_100    9
-#define TEXTURE_BATTERY_CHARGE 10
-
-#define TEXTURE_WIFI_NULL 11
-#define TEXTURE_WIFI_0    12
-#define TEXTURE_WIFI_1    13
-#define TEXTURE_WIFI_2    14
-#define TEXTURE_WIFI_3    15
+void Textures_Load(void);
+void Textures_Free(void);
 
 #endif

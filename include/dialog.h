@@ -1,8 +1,6 @@
-#ifndef DIALOG_H
-#define DIALOG_H
+#ifndef _3DS_RECOVERY_TOOL_DIALOG_H
+#define _3DS_RECOVERY_TOOL_DIALOG_H
 
-#include <3ds.h>
-
-Result Dialog_Draw(const char * topMessage, const char * bottomMessage);
+Result Dialog_Draw(const char *top_message, const char *bottom_message);
 
 #endif

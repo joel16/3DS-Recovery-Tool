@@ -4,8 +4,9 @@
 
 #include "fs.h"
 
-Result FS_OpenArchive(FS_Archive * archive, FS_ArchiveID archiveID)
-{
+FS_Archive sdmc_archive, nand_archive;
+
+Result FS_OpenArchive(FS_Archive *archive, FS_ArchiveID archiveID) {
 	Result ret = 0;
 
 	if (R_FAILED(ret = FSUSER_OpenArchive(archive, archiveID, fsMakePath(PATH_EMPTY, ""))))
@@ -14,8 +15,7 @@ Result FS_OpenArchive(FS_Archive * archive, FS_ArchiveID archiveID)
 	return 0;
 }
 
-Result FS_CloseArchive(FS_Archive archive)
-{
+Result FS_CloseArchive(FS_Archive archive) {
 	Result ret = 0;
 
 	if (R_FAILED(ret = FSUSER_CloseArchive(archive)))
@@ -24,8 +24,7 @@ Result FS_CloseArchive(FS_Archive archive)
 	return 0;
 }
 
-Result FS_MakeDir(FS_Archive archive, const char * path)
-{	
+Result FS_MakeDir(FS_Archive archive, const char *path) {
 	Result ret = 0;
 
 	if (R_FAILED(ret = FSUSER_CreateDirectory(archive, fsMakePath(PATH_ASCII, path), 0)))
@@ -34,32 +33,36 @@ Result FS_MakeDir(FS_Archive archive, const char * path)
 	return 0;
 }
 
-void FS_RecursiveMakeDir(FS_Archive archive, const char * dir) 
-{
-	char tmp[256];
+Result FS_RecursiveMakeDir(FS_Archive archive, const char *path) {
+	Result ret = 0;
+	char buf[256];
 	char *p = NULL;
 	size_t len;
 
-	snprintf(tmp, sizeof(tmp), "%s",dir);
-	len = strlen(tmp);
+	snprintf(buf, sizeof(buf), "%s", path);
+	len = strlen(buf);
 
-	if (tmp[len - 1] == '/')
-		tmp[len - 1] = 0;
+	if (buf[len - 1] == '/')
+		buf[len - 1] = 0;
 
-	for (p = tmp + 1; *p; p++)
-	{
-		if (*p == '/') 
-		{
+	for (p = buf + 1; *p; p++) {
+		if (*p == '/') {
 			*p = 0;
-			FS_MakeDir(archive, tmp);
+
+			if (!FS_DirExists(archive, buf))
+				ret = FS_MakeDir(archive, buf);
+			
 			*p = '/';
 		}
-		FS_MakeDir(archive, tmp);
+		
+		if (!FS_DirExists(archive, buf))
+			ret = FS_MakeDir(archive, buf);
 	}
+	
+	return ret;
 }
 
-bool FS_FileExists(FS_Archive archive, const char * path)
-{
+bool FS_FileExists(FS_Archive archive, const char *path) {
 	Handle handle;
 
 	if (R_FAILED(FSUSER_OpenFile(&handle, archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0)))
@@ -71,8 +74,7 @@ bool FS_FileExists(FS_Archive archive, const char * path)
 	return true;
 }
 
-bool FS_DirExists(FS_Archive archive, const char * path)
-{
+bool FS_DirExists(FS_Archive archive, const char *path) {
 	Handle handle;
 
 	if (R_FAILED(FSUSER_OpenDirectory(&handle, archive, fsMakePath(PATH_ASCII, path))))
@@ -84,47 +86,17 @@ bool FS_DirExists(FS_Archive archive, const char * path)
 	return true;
 }
 
-u64 FS_GetFileSize(FS_Archive archive, const char * path)
-{
-	Handle handle;
+Result FS_GetFileSize(FS_Archive archive, const char *path, u64 *size) {
 	Result ret = 0;
-	u64 st_size = 0;
+	Handle handle;
 
 	if (R_FAILED(ret = FSUSER_OpenFile(&handle, archive, fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0)))
 		return ret;
 
-	if (R_FAILED(ret = FSFILE_GetSize(handle, &st_size)))
+	if (R_FAILED(ret = FSFILE_GetSize(handle, size))) {
+		FSFILE_Close(handle);
 		return ret;
-
-	if (R_FAILED(ret = FSFILE_Close(handle)))
-		return ret;
-
-	return st_size;
-}
-
-Result FS_WriteFile(FS_Archive archive, FS_ArchiveID archiveID, const char * path, void * buf)
-{
-	Handle handle;
-	Result ret = 0;
-
-	u32 len = strlen(buf);
-	u64 size;
-	u32 written;
-	
-	if (FS_FileExists(archive, path))
-		FSUSER_DeleteFile(archive, fsMakePath(PATH_ASCII, path));
-
-	if (R_FAILED(ret = FSUSER_OpenFileDirectly(&handle, archiveID, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, path), (FS_OPEN_WRITE | FS_OPEN_CREATE), 0)))
-		return ret;
-
-	if (R_FAILED(ret = FSFILE_GetSize(handle, &size)))
-		return ret;
-
-	if (R_FAILED(ret = FSFILE_SetSize(handle, size + len)))
-		return ret;
-
-	if (R_FAILED(ret = FSFILE_Write(handle, &written, size, buf, len, FS_WRITE_FLUSH)))
-		return ret;
+	}
 
 	if (R_FAILED(ret = FSFILE_Close(handle)))
 		return ret;
@@ -132,55 +104,82 @@ Result FS_WriteFile(FS_Archive archive, FS_ArchiveID archiveID, const char * pat
 	return 0;
 }
 
-Result FS_Copy_File(FS_Archive srcArchive, FS_Archive destArchive, FS_ArchiveID srcArchiveID, FS_ArchiveID destArchiveID, char * src, char * dest)
-{
-	int chunksize = (512 * 1024);
-	char * buffer = (char *)malloc(chunksize);
-
-	u32 bytesWritten = 0, bytesRead = 0;
-	u64 offset = 0;
+static Result FS_RemoveFile(FS_Archive archive, const char *path) {
 	Result ret = 0;
+
+	if (R_FAILED(ret = FSUSER_DeleteFile(archive, fsMakePath(PATH_ASCII, path))))
+		return ret;
 	
-	Handle inputHandle, outputHandle;
+	return 0;
+}
 
-	Result in = FSUSER_OpenFileDirectly(&inputHandle, srcArchiveID, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, src), FS_OPEN_READ, 0);
-	
-	u64 size = FS_GetFileSize(srcArchive, src);
+Result FS_Write(FS_Archive archive, const char *path, const void *buf, u32 size) {
+	Result ret = 0;
+	Handle handle;
+	u32 bytes_written = 0;
 
-	if (R_SUCCEEDED(in))
-	{
-		// Delete output file (if existing)
-		FSUSER_DeleteFile(destArchive, fsMakePath(PATH_ASCII, dest));
-
-		Result out = FSUSER_OpenFileDirectly(&outputHandle, destArchiveID, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, dest), (FS_OPEN_CREATE | FS_OPEN_WRITE), 0);
-		
-		if (R_SUCCEEDED(out))
-		{
-			// Copy loop (512KB at a time)
-			do
-			{
-				ret = FSFILE_Read(inputHandle, &bytesRead, offset, buffer, chunksize);
-				
-				bytesWritten += FSFILE_Write(outputHandle, &bytesWritten, offset, buffer, size, FS_WRITE_FLUSH);
-				
-				if (bytesWritten == bytesRead)
-					break;
-			}
-			while(bytesRead);
-
-			ret = FSFILE_Close(outputHandle);
-			
-			if (bytesRead != bytesWritten) 
-				return ret;
-		}
-		else 
-			return out;
-
-		FSFILE_Close(inputHandle);
+	if (FS_FileExists(archive, path)) {
+		if (R_FAILED(ret = FS_RemoveFile(archive, path)))
+			return ret;
 	}
-	else 
-		return in;
 
-	free(buffer);
+	if (R_FAILED(ret = FSUSER_CreateFile(archive, fsMakePath(PATH_ASCII, path), 0, size)))
+		return ret;
+
+	if (R_FAILED(ret = FSUSER_OpenFile(&handle, archive, fsMakePath(PATH_ASCII, path), FS_OPEN_WRITE, 0)))
+		return ret;
+	
+	if (R_FAILED(ret = FSFILE_Write(handle, &bytes_written, 0, buf, size, FS_WRITE_FLUSH))) {
+		FSFILE_Close(handle);
+		return ret;
+	}
+
+	if (R_FAILED(ret = FSFILE_Close(handle)))
+		return ret;
+
+	return 0;
+}
+
+Result FS_CopyFile(FS_Archive src_archive, FS_Archive dest_archive, char *src_path, char *dest_path) {
+	Handle src_handle, dst_handle;
+	Result ret = 0;
+
+	if (R_FAILED(ret = FSUSER_OpenFile(&src_handle, src_archive, fsMakePath(PATH_ASCII, src_path), FS_OPEN_READ, 0)))
+		return ret;
+	
+	if (R_FAILED(ret = FSUSER_OpenFile(&dst_handle, dest_archive, fsMakePath(PATH_ASCII, dest_path), FS_OPEN_CREATE | FS_OPEN_WRITE, 0))) {
+		FSFILE_Close(src_handle);
+		return ret;
+	}
+
+	u32 bytes_read = 0;
+	u64 offset = 0, size = 0;
+	size_t buf_size = 0x10000;
+	u8 *buf = malloc(buf_size); // Chunk size
+	FS_GetFileSize(src_archive, src_path, &size);
+
+	do {
+		memset(buf, 0, buf_size);
+
+		if (R_FAILED(ret = FSFILE_Read(src_handle, &bytes_read, offset, buf, buf_size))) {
+			free(buf);
+			FSFILE_Close(src_handle);
+			FSFILE_Close(dst_handle);
+			return ret;
+		}
+		if (R_FAILED(ret = FSFILE_Write(dst_handle, NULL, offset, buf, bytes_read, FS_WRITE_FLUSH))) {
+			free(buf);
+			FSFILE_Close(src_handle);
+			FSFILE_Close(dst_handle);
+			return ret;
+		}
+
+		offset += bytes_read;
+	}
+	while(offset < size);
+
+	free(buf);
+	FSFILE_Close(src_handle);
+	FSFILE_Close(dst_handle);
 	return 0;
 }

@@ -1,13 +1,12 @@
-#include <3ds.h>
-
 #include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "colours.h"
+#include <3ds.h>
+
+#include "c2d_helper.h"
 #include "dialog.h"
 #include "fs.h"
-#include "pp2d.h"
 #include "status_bar.h"
 #include "textures.h"
 #include "utils.h"
@@ -15,295 +14,280 @@
 #define DISTANCE_Y    30
 #define LIST_PER_PAGE 6
 
-jmp_buf exitJmp;
+static jmp_buf exitJmp;
+static int selection = 0;
 
-void Init_Services(void)
-{
+static bool Utils_IsN3DS(void) {
+	bool isNew3DS = false;
+
+	if (R_SUCCEEDED(APT_CheckNew3DS(&isNew3DS)))
+		return isNew3DS;
+
+	return false;
+}
+
+static void Init_Services(void) {
 	amInit();
 	cfguInit();
-	FS_OpenArchive(&sdmcArchive, ARCHIVE_SDMC);
-	FS_OpenArchive(&nandArchive, ARCHIVE_NAND_CTR_FS);
+	mcuHwcInit();
+	FS_OpenArchive(&sdmc_archive, ARCHIVE_SDMC);
+	FS_OpenArchive(&nand_archive, ARCHIVE_NAND_CTR_FS);
 	
 	romfsInit();
-	pp2d_init();
-	
-	pp2d_load_texture_png(TEXTURE_TOGGLE_ON, "romfs:/res/drawable/toggleOn.png");
-	pp2d_load_texture_png(TEXTURE_TOGGLE_OFF, "romfs:/res/drawable/toggleOff.png");
+	gfxInitDefault();
+	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
+	C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
+	C2D_Prepare();
 
-	pp2d_load_texture_png(TEXTURE_BATTERY_0, "romfs:/res/drawable/battery/0.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_15, "romfs:/res/drawable/battery/15.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_28, "romfs:/res/drawable/battery/28.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_43, "romfs:/res/drawable/battery/43.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_57, "romfs:/res/drawable/battery/57.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_71, "romfs:/res/drawable/battery/71.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_85, "romfs:/res/drawable/battery/85.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_100, "romfs:/res/drawable/battery/100.png");
-	pp2d_load_texture_png(TEXTURE_BATTERY_CHARGE, "romfs:/res/drawable/battery/charge.png");
-
-	pp2d_load_texture_png(TEXTURE_WIFI_NULL, "romfs:/res/drawable/wifi/stat_sys_wifi_signal_null.png");
-	pp2d_load_texture_png(TEXTURE_WIFI_0, "romfs:/res/drawable/wifi/stat_sys_wifi_signal_0.png");
-	pp2d_load_texture_png(TEXTURE_WIFI_1, "romfs:/res/drawable/wifi/stat_sys_wifi_signal_1.png");
-	pp2d_load_texture_png(TEXTURE_WIFI_2, "romfs:/res/drawable/wifi/stat_sys_wifi_signal_2.png");
-	pp2d_load_texture_png(TEXTURE_WIFI_3, "romfs:/res/drawable/wifi/stat_sys_wifi_signal_3.png");
-	
 	if (Utils_IsN3DS())
 		osSetSpeedupEnable(true);
+
+	c2d_static_buf = C2D_TextBufNew(4096);
+	c2d_dynamic_buf = C2D_TextBufNew(4096);
+	c2d_size_buf = C2D_TextBufNew(4096);
+	font = C2D_FontLoad("romfs:/res/drawable/Roboto-Regular.bcfnt");
+
+	RENDER_TOP = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+	RENDER_BOTTOM = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+
+	Textures_Load();
 	
-	FS_RecursiveMakeDir(sdmcArchive, "/3ds/3DSRecoveryTool/dumps");
-	FS_RecursiveMakeDir(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/ro/sys");
-	FS_RecursiveMakeDir(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys");
-	FS_RecursiveMakeDir(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/private");
+	FS_RecursiveMakeDir(sdmc_archive, "/3ds/3DSRecoveryTool/dumps");
+	FS_RecursiveMakeDir(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/ro/sys");
+	FS_RecursiveMakeDir(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys");
+	FS_RecursiveMakeDir(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/private");
 
 	Utils_LoadConfig();
 }
 
-void Term_Services(void)
-{
-	pp2d_free_texture(TEXTURE_WIFI_3);
-	pp2d_free_texture(TEXTURE_WIFI_2);
-	pp2d_free_texture(TEXTURE_WIFI_1);
-	pp2d_free_texture(TEXTURE_WIFI_0);
-	pp2d_free_texture(TEXTURE_WIFI_NULL);
+static void Term_Services(void) {
+	Textures_Free();
 
-	pp2d_free_texture(TEXTURE_BATTERY_CHARGE);
-	pp2d_free_texture(TEXTURE_BATTERY_100);
-	pp2d_free_texture(TEXTURE_BATTERY_85);
-	pp2d_free_texture(TEXTURE_BATTERY_71);
-	pp2d_free_texture(TEXTURE_BATTERY_57);
-	pp2d_free_texture(TEXTURE_BATTERY_43);
-	pp2d_free_texture(TEXTURE_BATTERY_28);
-	pp2d_free_texture(TEXTURE_BATTERY_15);
-	pp2d_free_texture(TEXTURE_BATTERY_0);
-	
-	pp2d_free_texture(TEXTURE_TOGGLE_OFF);
-	pp2d_free_texture(TEXTURE_TOGGLE_ON);
+	C2D_FontFree(font);
+	C2D_TextBufDelete(c2d_size_buf);
+	C2D_TextBufDelete(c2d_dynamic_buf);
+	C2D_TextBufDelete(c2d_static_buf);
 
 	if (Utils_IsN3DS())
 		osSetSpeedupEnable(0);
 	
-	pp2d_exit();
+	C2D_Fini();
+	C3D_Fini();
+	gfxExit();
 	romfsExit();
 	
-	FS_CloseArchive(nandArchive);
-	FS_CloseArchive(sdmcArchive);
+	FS_CloseArchive(nand_archive);
+	FS_CloseArchive(sdmc_archive);
+	mcuHwcExit();
 	cfguExit();
 	amExit();
 }
 
-void Menu_Main(void);
+static void Menu_DrawUI(int *selection, int max_items, const char *item_list[], const char *title, bool main) {
+	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+	C2D_TargetClear(RENDER_TOP, C2D_Color32(19, 23, 26, 255));
+	C2D_TargetClear(RENDER_BOTTOM, C2D_Color32(39, 50, 56, 255));
+	C2D_SceneBegin(RENDER_TOP);
 
-void Menu_Backup(void)
-{
-	int selection = 0, max_items = 4;
-	
-	Result res = 0;
-	
-	char func[20];
-	
-	bool isSelected = false;
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			StatusBar_DisplayBar();
-		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Backup");
-		
-			pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * selection), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup NAND LocalFriendCodeSeed");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup NAND SecureInfo");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup moveable.sed");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup HWCAL");
-		
-		pp2d_end_draw();
+	Draw_Rect(0, 0, 400, 18, C2D_Color32(19, 23, 26, 255));
+	Draw_Rect(0, 18, 400, 38, C2D_Color32(39, 50, 56, 255));
+	Draw_Rect(0, 55, 400, 185, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
+	StatusBar_DisplayBar();
+	
+	if (main)
+		Draw_Text(10, 27, 0.5f, C2D_Color32(240, 242, 242, 255), title);
+	else {
+		Draw_Image(icon_back, 5, 22);
+		Draw_Text(30 + 10, 27, 0.5f, C2D_Color32(240, 242, 242, 255), title);
+	}
+	
+	int printed = 0;
+	for (int i = 0; i < max_items + 1; i++) {
+		if (printed == LIST_PER_PAGE)
+			break;
 			
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			if (R_FAILED(res))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup %s failed with err 0x%08x.", func, (unsigned int)res);
-			else if ((R_SUCCEEDED(res)) && (isSelected))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s backed-up successfully.", func);
-		
-		pp2d_end_draw();
+		if (*selection < LIST_PER_PAGE || i > (*selection - LIST_PER_PAGE)) {
+			if (i == *selection)
+				Draw_Rect(0, 55 + (DISTANCE_Y * printed), 400, 30, dark_theme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
+			
+			Draw_Text(10, 62 + (DISTANCE_Y * printed), 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, item_list[i]);
+			printed++;
+		}
+	}
+}
 
-		hidScanInput();
-		u32 kDown = hidKeysDown();
+static void Menu_HandleControls(u32 *kDown, int max_items) {
+	hidScanInput();
+	*kDown = hidKeysDown();
+	
+	if (*kDown & KEY_START)
+		longjmp(exitJmp, 1);
+
+	if (*kDown & KEY_DDOWN)
+		selection++;
+	else if (*kDown & KEY_DUP)
+		selection--;
+
+	Utils_SetMax(&selection, 0, max_items);
+	Utils_SetMin(&selection, max_items, 0);
+}
+
+static void Menu_Backup(void) {
+	Result ret = 0;
+	selection = 0;
+	int max_items = 4;
+	bool is_selected = false;
+	char func[50];
+	const char *item_list[] = {
+		"Back",
+		"Backup NAND LocalFriendCodeSeed",
+		"Backup NAND SecureInfo",
+		"Backup moveable.sed",
+		"Backup HWCAL"
+	};
+
+	while (aptMainLoop()) {
+		Menu_DrawUI(&selection, max_items, item_list, "Backup", false);
 		
-		if (kDown & KEY_DDOWN)
-			selection++;
-		else if (kDown & KEY_DUP)
-			selection--;
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-		if (selection > max_items) 
-			selection = 0;
-		if (selection < 0) 
-			selection = max_items;
+		if (R_FAILED(ret))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Backup %s failed with err 0x%08x.", func, (unsigned int)ret);
+		else if ((R_SUCCEEDED(ret)) && (is_selected))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s backed-up successfully.", func);
 		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
-				case 0:
-					Menu_Main();
-					break;
+		Draw_EndFrame();
+
+		u32 kDown = 0;
+		Menu_HandleControls(&kDown, max_items);
+
+		if (kDown & KEY_A) {
+			if (selection == 0)
+				break;
+			
+			switch(selection) {
 				case 1:
-					if (FS_FileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_B"))
-						res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/LocalFriendCodeSeed_B", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
-					else if (FS_FileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_A"))
-						res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/LocalFriendCodeSeed_A", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
+					if (FS_FileExists(nand_archive, "/rw/sys/LocalFriendCodeSeed_B"))
+						ret = FS_CopyFile(nand_archive, sdmc_archive, "/rw/sys/LocalFriendCodeSeed_B", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B");
+					else if (FS_FileExists(nand_archive, "/rw/sys/LocalFriendCodeSeed_A"))
+						ret = FS_CopyFile(nand_archive, sdmc_archive, "/rw/sys/LocalFriendCodeSeed_A", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A");
 					
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					break;
+				
 				case 2:
-					if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_C"))
-						res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_C", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C");
-					if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_A"))
-						res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_A", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A");
-					else if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_B"))
-						res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/rw/sys/SecureInfo_B", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B");
+					if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_C"))
+						ret = FS_CopyFile(nand_archive, sdmc_archive, "/rw/sys/SecureInfo_C", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C");
+					if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_A"))
+						ret = FS_CopyFile(nand_archive, sdmc_archive, "/rw/sys/SecureInfo_A", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A");
+					else if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_B"))
+						ret = FS_CopyFile(nand_archive, sdmc_archive, "/rw/sys/SecureInfo_B", "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B");
 					
 					snprintf(func, 11, "SecureInfo");
 					break;
+				
 				case 3:
-					res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/private/movable.sed", "/3ds/3DSRecoveryTool/backups/nand/private/movable.sed");
+					ret = FS_CopyFile(nand_archive, sdmc_archive, "/private/movable.sed", "/3ds/3DSRecoveryTool/backups/nand/private/movable.sed");
 					snprintf(func, 12, "movable.sed");
 					break;
+				
 				case 4:
-					res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/ro/sys/HWCAL0.dat", "/3ds/3DSRecoveryTool/backups/nand/ro/sys/HWCAL0.dat");
-					res = FS_Copy_File(nandArchive, sdmcArchive, ARCHIVE_NAND_CTR_FS, ARCHIVE_SDMC, "/ro/sys/HWCAL1.dat", "/3ds/3DSRecoveryTool/backups/nand/ro/sys/HWCAL1.dat");
+					ret = FS_CopyFile(nand_archive, sdmc_archive, "/ro/sys/HWCAL0.dat", "/3ds/3DSRecoveryTool/backups/nand/ro/sys/HWCAL0.dat");
+					ret = FS_CopyFile(nand_archive, sdmc_archive, "/ro/sys/HWCAL1.dat", "/3ds/3DSRecoveryTool/backups/nand/ro/sys/HWCAL1.dat");
 					snprintf(func, 6, "HWCAL");
 					break;
 			}
 
-			isSelected = true;
+			is_selected = true;
 			selection = 0;
 		}
-		
 		else if (kDown & KEY_B)
-			Menu_Main();
+			break;
 	}
 }
 
-void Menu_Restore(void)
-{
-	int selection = 0, max_items = 4;
-	
-	Result res = 0;
-	
-	char func[20];
-	
-	bool isSelected = false;
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			StatusBar_DisplayBar();
-		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Restore");
-		
-			pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * selection), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore original LocalFriendCodeSeed");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore original SecureInfo");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore backup LocalFriendCodeSeed");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore backup SecureInfo");
+static void Menu_Restore(void) {
+	Result ret = 0;
+	selection = 0;
+	int max_items = 4;
+	bool is_selected = false;
+	char func[50];
+	const char *item_list[] = {
+		"Back",
+		"Restore original LocalFriendCodeSeed",
+		"Restore original SecureInfo",
+		"Restore backup LocalFriendCodeSeed",
+		"Restore backup SecureInfo"
+	};
 
-		pp2d_end_draw();
+	while (aptMainLoop()) {
+		Menu_DrawUI(&selection, max_items, item_list, "Restore", false);
+		
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		
+		if (R_FAILED(ret))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore %s failed with err 0x%08x.", func, (unsigned int)ret);
+		else if ((R_SUCCEEDED(ret)) && (is_selected))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s restored successful.", func);
+		
+		Draw_EndFrame();
 
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			if (R_FAILED(res))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore %s failed with err 0x%08x.", func, (unsigned int)res);
-			else if ((R_SUCCEEDED(res)) && (isSelected))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s restored successfully.", func);
-		
-		pp2d_end_draw();
+		u32 kDown = 0;
+		Menu_HandleControls(&kDown, max_items);
 
-		hidScanInput();
-		u32 kDown = hidKeysDown();
-		
-		if (kDown & KEY_DDOWN)
-			selection++;
-		else if (kDown & KEY_DUP)
-			selection--;
-		
-		if (selection > max_items) 
-			selection = 0;
-		if (selection < 0) 
-			selection = max_items;
-		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
-				case 0:
-					Menu_Main();
-					break;
+		if (kDown & KEY_A) {
+			if (selection == 0)
+				break;
+			
+			switch(selection) {
 				case 1:
-					res = CFGI_RestoreLocalFriendCodeSeed();
+					ret = CFGI_RestoreLocalFriendCodeSeed();
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					break;
+				
 				case 2:
-					res = CFGI_RestoreSecureInfo();
+					ret = CFGI_RestoreSecureInfo();
 					snprintf(func, 11, "SecureInfo");
+				
 				case 3:
-					if (FS_FileExists(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B"))
-						res = FS_Copy_File(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B", "/rw/sys/LocalFriendCodeSeed_B");
-					else if (FS_FileExists(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A"))
-						res = FS_Copy_File(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A", "/rw/sys/LocalFriendCodeSeed_A");
+					if (FS_FileExists(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B"))
+						ret = FS_CopyFile(sdmc_archive, nand_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_B", "/rw/sys/LocalFriendCodeSeed_B");
+					else if (FS_FileExists(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A"))
+						ret = FS_CopyFile(sdmc_archive, nand_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/LocalFriendCodeSeed_A", "/rw/sys/LocalFriendCodeSeed_A");
 					
 					snprintf(func, 20, "LocalFriendCodeSeed");
 					break;
+				
 				case 4:
-					if (FS_FileExists(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C"))
-						res = FS_Copy_File(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C", "/rw/sys/SecureInfo_C");
-					if (FS_FileExists(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A"))
-						res = FS_Copy_File(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A", "/rw/sys/SecureInfo_A");
-					else if (FS_FileExists(sdmcArchive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B"))
-						res = FS_Copy_File(sdmcArchive, nandArchive, ARCHIVE_SDMC, ARCHIVE_NAND_CTR_FS, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B", "/rw/sys/SecureInfo_B");
+					if (FS_FileExists(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C"))
+						ret = FS_CopyFile(sdmc_archive, nand_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_C", "/rw/sys/SecureInfo_C");
+					if (FS_FileExists(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A"))
+						ret = FS_CopyFile(sdmc_archive, nand_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_A", "/rw/sys/SecureInfo_A");
+					else if (FS_FileExists(sdmc_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B"))
+						ret = FS_CopyFile(sdmc_archive, nand_archive, "/3ds/3DSRecoveryTool/backups/nand/rw/sys/SecureInfo_B", "/rw/sys/SecureInfo_B");
 					
 					snprintf(func, 11, "SecureInfo");
 					break;
 			}
 
-			isSelected = true;
+			is_selected = true;
 			selection = 0;
 		}
-		
 		else if (kDown & KEY_B)
-			Menu_Main();
+			break;
 	}
 }
 
-void Menu_Advanced_Wipe(void)
-{
-	int selection = 0, max_items = 10;
-	
-	Result res = 0;
-	
-	char func[27];
-	
-	bool isSelected = false;
-
-	const char * wipe_list[] = 
-	{
+static void Menu_Advanced_Wipe(void) {
+	Result ret = 0;
+	selection = 0;
+	int max_items = 9;
+	bool is_selected = false;
+	char func[50];
+	const char *item_list[] = {
 		"Back",
 		"Wipe all temporary and expired titles",
 		"Wipe all TWL titles",
@@ -315,350 +299,241 @@ void Menu_Advanced_Wipe(void)
 		"Format SDMC root",
 		"Format NAND ext savedata"
 	};
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
+
+	while (aptMainLoop()) {
+		Menu_DrawUI(&selection, max_items, item_list, "Advanced Wipe", false);
+
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		if (R_FAILED(ret))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe %s failed with err 0x%08x.", func, (unsigned int)ret);
+		else if ((R_SUCCEEDED(ret)) && (is_selected))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wiped %s successful.", func);
 		
-			StatusBar_DisplayBar();
-		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Advanced Wipe");
+		Draw_EndFrame();
 
-			int printed = 0; // Print counter
+		u32 kDown = 0;
+		Menu_HandleControls(&kDown, max_items);
 
-			for (int i = 0; i < max_items + 1; i++)
-			{
-				if (printed == LIST_PER_PAGE)
-					break;
-
-				if (selection < LIST_PER_PAGE || i > (selection - LIST_PER_PAGE))
-				{
-					if (i == selection)
-						pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * printed), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-
-					pp2d_draw_text(10, 65 + (DISTANCE_Y * printed), 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, wipe_list[i]);
-
-					printed++;
-				}
-			}
-
-		pp2d_end_draw();
-
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			if (R_FAILED(res))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wipe %s failed with err 0x%08x.", func, (unsigned int)res);
-			else if ((R_SUCCEEDED(res)) && (isSelected))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Wiped %s successfully.", func);
-		
-		pp2d_end_draw();
-
-		hidScanInput();
-		u32 kDown = hidKeysDown();
+		if (kDown & KEY_A) {
+			if (selection == 0)
+				break;
 			
-		if (kDown & KEY_DDOWN)
-		{
-			if (selection < (max_items - 1))
-				selection++;
-			else 
-				selection = 0;
-		}
-		else if (kDown & KEY_DUP)
-		{
-			if (selection > 0)
-				selection--;
-			else 
-				selection = (max_items - 1);
-		}
-		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
-				case 0:
-					Menu_Main();
-					break;
+			switch(selection) {
 				case 1:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose all expired titles.", "Do you wish to continue?")))
-					{
-						res = AM_DeleteAllTemporaryTitles();
-						res = AM_DeleteAllExpiredTitles(MEDIATYPE_SD);
+					if (R_SUCCEEDED(Dialog_Draw("You will lose all expired titles.", "Do you wish to continue?"))) {
+						ret = AM_DeleteAllTemporaryTitles();
+						ret = AM_DeleteAllExpiredTitles(MEDIATYPE_SD);
 						snprintf(func, 27, "temporary & expired titles");
 					}
 					break;
+				
 				case 2:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose all TWL titles.", "Do you wish to continue?")))
-					{
-						res = AM_DeleteAllTwlTitles();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose all TWL titles.", "Do you wish to continue?"))) {
+						ret = AM_DeleteAllTwlTitles();
 						snprintf(func, 11, "TWL titles");
 					}
 					break;
+				
 				case 3:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose all pending tiles.", "Do you wish to continue?")))
-					{
-						res = AM_DeleteAllPendingTitles(MEDIATYPE_NAND);
-						res = AM_DeleteAllPendingTitles(MEDIATYPE_SD);
+					if (R_SUCCEEDED(Dialog_Draw("You will lose all pending tiles.", "Do you wish to continue?"))) {
+						ret = AM_DeleteAllPendingTitles(MEDIATYPE_NAND);
+						ret = AM_DeleteAllPendingTitles(MEDIATYPE_SD);
 						snprintf(func, 14, "pending tiles");
 					}
 					break;
+				
 				case 4:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose all demo launch infos.", "Do you wish to continue?")))
-					{
-						res = AM_DeleteAllDemoLaunchInfos();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose all demo launch infos.", "Do you wish to continue?"))) {
+						ret = AM_DeleteAllDemoLaunchInfos();
 						snprintf(func, 18, "demo launch infos");
 					}
 					break;
+				
 				case 5:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose all data in Settings.", "Do you wish to continue?")))
-					{
-						res = CFGI_FormatConfig();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose all data in Settings.", "Do you wish to continue?"))) {
+						ret = CFGI_FormatConfig();
 						snprintf(func, 7, "config");
 					}
 					break;
+				
 				case 6:
-					if (R_SUCCEEDED(Dialog_Draw("This will disable parental controls.", "Do you wish to continue?")))
-					{
-						res = CFGI_ClearParentalControls();
+					if (R_SUCCEEDED(Dialog_Draw("This will disable parental controls.", "Do you wish to continue?"))) {
+						ret = CFGI_ClearParentalControls();
 						snprintf(func, 18, "parental controls");
 					}
 					break;
+				
 				case 7:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL data.", "Do you wish to continue?")))
-					{
-						res = FSUSER_DeleteAllExtSaveDataOnNand();
-						res = FSUSER_InitializeCtrFileSystem();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL data.", "Do you wish to continue?"))) {
+						ret = FSUSER_DeleteAllExtSaveDataOnNand();
+						ret = FSUSER_InitializeCtrFileSystem();
 						snprintf(func, 9, "all data");
 					}
 					break;
+				
 				case 8:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL data in your SD.", "Do you wish to continue?")))
-					{
-						res = FSUSER_DeleteSdmcRoot();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL data in your SD.", "Do you wish to continue?"))) {
+						ret = FSUSER_DeleteSdmcRoot();
 						snprintf(func, 5, "SDMC");
 					}
 					break;
+				
 				case 9:
-					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL ext savedata in nand.", "Do you wish to continue?")))
-					{
-						res = FSUSER_DeleteAllExtSaveDataOnNand();
+					if (R_SUCCEEDED(Dialog_Draw("You will lose ALL ext savedata in nand.", "Do you wish to continue?"))) {
+						ret = FSUSER_DeleteAllExtSaveDataOnNand();
 						snprintf(func, 18, "NAND ext savedata");
 					}
 			}
 
-			isSelected = true;
+			is_selected = true;
 			selection = 0;
 		}
-		
 		else if (kDown & KEY_B)
-			Menu_Main();
+			break;
 	}
 }
 
-void Menu_Misc(void)
-{
-	int selection = 0, max_items = 5;
-	
-	Result res = 0;
-	
-	char func[33];
-	
-	bool isSelected = false;
+static void Menu_Misc(void) {
+	Result ret = 0;
+	selection = 0;
+	int max_items = 5;
+	bool is_selected = false;
+	char func[50];
+	const char *item_list[] = {
+		"Back",
+		"Dump original LocalFriendCodeSeed data",
+		"Dump original SecureInfo data",
+		"Verify LocalFriendCodeSeed sig",
+		"Verify SecureInfo sig",
+		"Dark theme"		
+	};
 
-	FILE *fp = NULL;
-	u8 lfcs_data[0x110], sig_data[0x100], secureinfo_data[0x11];
+	u8 lfcs_data[0x110], sig_data[0x100], secureinfo_data[0x11], secureinfo_sig_data[0x111];
 
-	CFGI_GetSecureInfoSignature(sig_data);
-	CFGI_GetSecureInfoData(secureinfo_data);
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
+	while (aptMainLoop()) {
+		Menu_DrawUI(&selection, max_items, item_list, "Miscellaneous", false);
+		dark_theme? Draw_Image(icon_toggle_on, 350, 205) : Draw_Image(icon_toggle_off, 350, 205);
 		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
 		
-			StatusBar_DisplayBar();
+		if (R_FAILED(ret))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s failed with err 0x%08x.", func, (unsigned int)ret);
+		else if ((R_SUCCEEDED(ret)) && (is_selected))
+			Draw_Textf(10, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s successful.", func);
 		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "Miscellaneous");
+		Draw_EndFrame();
 		
-			pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * selection), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dump original LocalFriendCodeSeed data");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dump original SecureInfo data");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify LocalFriendCodeSeed sig");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Verify SecureInfo sig");
-			pp2d_draw_text(10, 215, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Dark theme");
-		
-			darkTheme? pp2d_draw_texture(TEXTURE_TOGGLE_ON, 350, 205) : pp2d_draw_texture(TEXTURE_TOGGLE_OFF, 350, 205);
-		
-		pp2d_end_draw();
+		u32 kDown = 0;
+		Menu_HandleControls(&kDown, max_items);
 
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-
-			if (R_FAILED(res))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s failed with err 0x%08x.", func, (unsigned int)res);
-			else if ((R_SUCCEEDED(res)) && (isSelected))
-				pp2d_draw_textf(10, 220, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "%s successful.", func);
-
-		pp2d_end_draw();
-
-		hidScanInput();
-		u32 kDown = hidKeysDown();
-		
-		if (kDown & KEY_DDOWN)
-			selection++;
-		else if (kDown & KEY_DUP)
-			selection--;
-		
-		if (selection > max_items) 
-			selection = 0;
-		if (selection < 0) 
-			selection = max_items;
-		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
-				case 0:
-					Menu_Main();
-					break;
+		if (kDown & KEY_A) {
+			if (selection == 0)
+				break;
+			
+			switch(selection) {
 				case 1:
-					CFGI_GetLocalFriendCodeSeedData(lfcs_data);
+					if (R_SUCCEEDED(ret = CFGI_GetLocalFriendCodeSeedData(lfcs_data))) {
+						if (FS_FileExists(nand_archive, "/rw/sys/LocalFriendCodeSeed_B"))
+							ret = FS_Write(sdmc_archive, "/3ds/3DSRecoveryTool/dumps/LocalFriendCodeSeed_B", lfcs_data, 0x110);
+						else if (FS_FileExists(nand_archive, "/rw/sys/LocalFriendCodeSeed_A"))
+							ret = FS_Write(sdmc_archive, "/3ds/3DSRecoveryTool/dumps/LocalFriendCodeSeed_A", lfcs_data, 0x110);
+					}
 
-					if (FS_FileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_B"))
-						fp = fopen ("/3ds/3DSRecoveryTool/dumps/LocalFriendCodeSeed_B", "wb");
-					else if (FS_FileExists(nandArchive, "/rw/sys/LocalFriendCodeSeed_A"))
-						fp = fopen ("/3ds/3DSRecoveryTool/dumps/LocalFriendCodeSeed_A", "wb");
-
-					res = fwrite(lfcs_data, 1, 0x110, fp);
-					fclose(fp);
-					
 					snprintf(func, 25, "LocalFriendCodeSeed dump");
 					selection = 0;
-					isSelected = true;
+					is_selected = true;
 					break;
+				
 				case 2:
-					if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_C"))
-						fp = fopen ("/3ds/3DSRecoveryTool/dumps/SecureInfo_C", "wb");
-					else if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_A"))
-						fp = fopen ("/3ds/3DSRecoveryTool/dumps/SecureInfo_A", "wb");
-					else if (FS_FileExists(nandArchive, "/rw/sys/SecureInfo_B"))
-						fp = fopen ("/3ds/3DSRecoveryTool/dumps/SecureInfo_B", "wb");
+					if (R_SUCCEEDED(ret = CFGI_GetSecureInfoSignature(sig_data)) && R_SUCCEEDED(ret = CFGI_GetSecureInfoData(secureinfo_data))) {
+						memcpy(&secureinfo_sig_data[0x0], sig_data, 0x100);
+						memcpy(&secureinfo_sig_data[0x100], secureinfo_data, 0x11);
 
-					res = fwrite(sig_data, 1, 0x100, fp);
-					res = fwrite(secureinfo_data, 1, 0x11, fp);
-					fclose(fp);
+						if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_C"))
+							ret = FS_Write(sdmc_archive, "/3ds/3DSRecoveryTool/dumps/SecureInfo_C", secureinfo_sig_data, 0x111);
+						else if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_A"))
+							ret = FS_Write(sdmc_archive, "/3ds/3DSRecoveryTool/dumps/SecureInfo_A", secureinfo_sig_data, 0x111);
+						else if (FS_FileExists(nand_archive, "/rw/sys/SecureInfo_B"))
+							ret = FS_Write(sdmc_archive, "/3ds/3DSRecoveryTool/dumps/SecureInfo_B", secureinfo_sig_data, 0x111);
+					}
 					
 					snprintf(func, 25, "SecureInfo dump");
 					selection = 0;
-					isSelected = true;
+					is_selected = true;
 					break;
+				
 				case 3:
-					res = CFGI_VerifySigLocalFriendCodeSeed();
+					ret = CFGI_VerifySigLocalFriendCodeSeed();
 					snprintf(func, 33, "LocalFriendCodeSeed verification");
 					selection = 0;
-					isSelected = true;
+					is_selected = true;
 					break;
+				
 				case 4:
-					res = CFGI_VerifySigSecureInfo();
+					ret = CFGI_VerifySigSecureInfo();
 					snprintf(func, 24, "SecureInfo verification");
 					selection = 0;
-					isSelected = true;
+					is_selected = true;
 					break;
+				
 				case 5:
-					if (darkTheme == false)
-						darkTheme = true;
+					if (dark_theme == false)
+						dark_theme = true;
 					else
-						darkTheme = false;
-					Utils_SaveConfig(darkTheme);
+						dark_theme = false;
+					Utils_SaveConfig(dark_theme);
 					break;
 			}
 		}
-		
 		else if (kDown & KEY_B)
-			Menu_Main();
+			break;
 	}
 }
 
-void Menu_Main(void)
-{
-	int selection = 0, max_items = 4;
-	
-	pp2d_set_screen_color(GFX_TOP, 0x000000FF);
-	pp2d_set_screen_color(GFX_BOTTOM, 0x000000FF);
-	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
-		
-			pp2d_draw_rectangle(0, 0, 400, 16, RGBA8(19, 23, 26, 255));
-			pp2d_draw_rectangle(0, 16, 400, 40, RGBA8(39, 50, 56, 255));
-			pp2d_draw_rectangle(0, 55, 400, 185, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			StatusBar_DisplayBar();
-		
-			pp2d_draw_text(10, 27, 0.5f, 0.5f, RGBA8(240, 242, 242, 255), "3DS Recovery Tool");
-		
-			pp2d_draw_rectangle(0, 55 + (DISTANCE_Y * selection), 400, 30, darkTheme? SELECTOR_COLOUR_DARK : SELECTOR_COLOUR_LIGHT);
-		
-			pp2d_draw_text(10, 65, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Back-up");
-			pp2d_draw_text(10, 95, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Restore");
-			pp2d_draw_text(10, 125, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Advanced wipe");
-			pp2d_draw_text(10, 155, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Misc");
-			pp2d_draw_text(10, 185, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "Exit");
-		
-		pp2d_end_draw();
+static void Menu_Main(void) {
+	selection = 0;
+	int max_items = 4;
+	const char *item_list[] = {
+		"Back-up",
+		"Restore",
+		"Advanced wipe",
+		"Misc",
+		"Exit"
+	};
 
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
+	while (aptMainLoop()) {
+		Menu_DrawUI(&selection, max_items, item_list, "3DS Recovery Tool", true);
 		
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		Draw_Textf(5, 220, 0.45f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "3DS Recovery Tool v%d.%d%d", VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
 		
-			pp2d_draw_textf(2, 225, 0.45f, 0.45f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, "3DS Recovery Tool v%i.%i0", VERSION_MAJOR, VERSION_MINOR);
-		
-		pp2d_end_draw();
+		Draw_EndFrame();
 
-		hidScanInput();
-		u32 kDown = hidKeysDown();
+		u32 kDown = 0;
+		Menu_HandleControls(&kDown, max_items);
 
-		if (kDown & KEY_START)
-			longjmp(exitJmp, 1);
-		
-		if (kDown & KEY_DDOWN)
-			selection++;
-		else if (kDown & KEY_DUP)
-			selection--;
-		
-		if (selection > max_items) 
-			selection = 0;
-		if (selection < 0) 
-			selection = max_items;
-		
-		if (kDown & KEY_A)
-		{
-			switch(selection)
-			{
+		if (kDown & KEY_A) {
+			switch(selection) {
 				case 0:
 					Menu_Backup();
 					break;
+				
 				case 1:
 					Menu_Restore();
 					break;
+				
 				case 2:
 					Menu_Advanced_Wipe();
 					break;
+				
 				case 3:
 					Menu_Misc();
 					break;
+				
 				case 4:
 					longjmp(exitJmp, 1);
 					break;
@@ -667,18 +542,14 @@ void Menu_Main(void)
 	}
 }
 
-int main(int argc, char **argv) 
-{
+int main(int argc, char **argv) {
 	Init_Services();
-	
-	if(setjmp(exitJmp)) 
-	{
+	if (setjmp(exitJmp)) {
 		Term_Services();
 		return 0;
 	}
 	
 	Menu_Main();
-	
 	Term_Services();
 	
 	return 0;

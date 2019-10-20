@@ -1,51 +1,42 @@
-#include "colours.h"
-#include "dialog.h"
-#include "pp2d.h"
+#include <3ds.h>
+
+#include "c2d_helper.h"
 #include "utils.h"
 
-Result Dialog_Draw(const char * topMessage, const char * bottomMessage)
-{
+Result Dialog_Draw(const char *top_message, const char *bottom_message) {
 	Result ret = 0;
 	
-	float topWidth = pp2d_get_text_width(topMessage, 0.6f, 0.6f);
-	float topHeight = pp2d_get_text_height(topMessage, 0.6f, 0.6f);
+	float top_width = Draw_GetTextWidth(0.6f, top_message);
+	float top_height = Draw_GetTextHeight(0.6f, top_message);
 	
-	float bottomWidth = pp2d_get_text_width(bottomMessage, 0.6f, 0.6f);
-	float bottomHeight = pp2d_get_text_height(bottomMessage, 0.6f, 0.6f);
+	float bottom_width = Draw_GetTextWidth(0.6f, bottom_message);
+	float bottom_height = Draw_GetTextHeight(0.6f, bottom_message);
 	
 	touchPosition touch;
 	
-	while (aptMainLoop())
-	{
-		pp2d_begin_draw(GFX_TOP, GFX_LEFT);
+	while (aptMainLoop()) {
+		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+		C2D_SceneBegin(RENDER_TOP);
+		Draw_Rect(0, 0, 400, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		Draw_Text(((400 - top_width) / 2), (((240 - top_height) / 2) - 20), 0.6f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, top_message);
+		Draw_Text(((400 - bottom_width) / 2), (((240 - bottom_height) / 2) + 20), 0.6f, dark_theme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, bottom_message);
 
-			pp2d_draw_rectangle(0, 0, 400, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		C2D_SceneBegin(RENDER_BOTTOM);
+		Draw_Rect(0, 0, 320, 240, dark_theme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
+		Draw_Text(((160 - Draw_GetTextWidth(0.5f, "CANCEL")) / 2), (220 - Draw_GetTextHeight(0.5f, "CANCEL")), 0.5f, C2D_Color32(0, 151, 136, 255), "CANCEL");
+		Draw_Text((((160 - Draw_GetTextWidth(0.5f, "OK")) / 2) + 160), (220 - Draw_GetTextHeight(0.5f, "OK")), 0.5f, C2D_Color32(0, 151, 136, 255), "OK");
 		
-			pp2d_draw_text(((400 - topWidth) / 2), (((240 - topHeight) / 2) - 20), 0.6f, 0.6f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, topMessage);
-			pp2d_draw_text(((400 - bottomWidth) / 2), (((240 - bottomHeight) / 2) + 20), 0.6f, 0.6f, darkTheme? TEXT_COLOUR_DARK : TEXT_COLOUR_LIGHT, bottomMessage);
-
-		pp2d_end_draw();
-
-		pp2d_begin_draw(GFX_BOTTOM, GFX_LEFT);
-
-			pp2d_draw_rectangle(0, 0, 320, 240, darkTheme? BG_COLOUR_DARK : BG_COLOUR_LIGHT);
-		
-			pp2d_draw_text(((160 - pp2d_get_text_width("CANCEL", 0.5f, 0.5f)) / 2), (220 - pp2d_get_text_height("CANCEL", 0.5f, 0.5f)), 0.5f, 0.5f, RGBA8(0, 151, 136, 255), "CANCEL");
-			pp2d_draw_text((((160 - pp2d_get_text_width("OK", 0.5f, 0.5f)) / 2) + 160), (220 - pp2d_get_text_height("OK", 0.5f, 0.5f)), 0.5f, 0.5f, RGBA8(0, 151, 136, 255), "OK");
-		
-		pp2d_end_draw();
+		Draw_EndFrame();
 
 		hidScanInput();
 		hidTouchRead(&touch);
 		u32 kDown = hidKeysDown();
 		
-		if ((kDown & KEY_A) || ((touchInRect(160, 190, 320, 240)) && (kDown & KEY_TOUCH)))
-		{
+		if ((kDown & KEY_A) || ((touchInRect(160, 190, 320, 240)) && (kDown & KEY_TOUCH))) {
 			ret = 1;
 			break;
 		}
-		else if ((kDown & KEY_B) || ((touchInRect(0, 190, 159, 240)) && (kDown & KEY_TOUCH)))
-		{
+		else if ((kDown & KEY_B) || ((touchInRect(0, 190, 159, 240)) && (kDown & KEY_TOUCH))) {
 			ret = -1;
 			break;
 		}
